@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import LocalAuthentication
 
 struct MainDashboardView: View {
     @EnvironmentObject private var monitor: ThermalMonitor
@@ -19,7 +20,7 @@ struct MainDashboardView: View {
                     PrivilegeSetupBanner()
                 }
 
-                // ── Row 1: Temperature gauges ──
+                // ── Row 1: Temperature gauges + Fan ──
                 HStack(alignment: .top, spacing: 12) {
                     TemperatureGaugeView(
                         temperature: monitor.currentTemperature,
@@ -27,15 +28,14 @@ struct MainDashboardView: View {
                     )
                     .frame(maxWidth: .infinity)
 
-                    VStack(spacing: 12) {
-                        TemperatureGaugeView(
-                            temperature: monitor.gpuTemperature,
-                            title: "GPU Temperature", icon: "memorychip"
-                        )
-                        FanRPMView(rpm: monitor.fanRPM,
-                                   fanController: monitor.fanController)
-                    }
-                    .frame(width: 195)
+                    TemperatureGaugeView(
+                        temperature: monitor.gpuTemperature,
+                        title: "GPU Temperature", icon: "memorychip"
+                    )
+                    .frame(maxWidth: .infinity)
+
+                    FanRPMView()
+                        .frame(width: 195)
                 }
 
                 // ── Row 2: Throttle state + Risk assessment ──
@@ -310,6 +310,22 @@ private struct PrivilegeSetupBanner: View {
     @State private var isSettingUp = false
     @State private var setupError: String?
 
+    private var authMethod: (icon: String, label: String) {
+        let ctx = LAContext()
+        var err: NSError?
+        guard ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) else {
+            return ("key.fill", "Grant Access")
+        }
+        switch ctx.biometryType {
+        case .touchID:  return ("touchid",       "Authenticate with Touch ID")
+        case .faceID:   return ("faceid",        "Authenticate with Face ID")
+        case .opticID:  return ("opticid",       "Authenticate with Optic ID")
+        default:
+            // Apple Watch or password
+            return ("applewatch", "Authenticate with Apple Watch or Password")
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
@@ -317,7 +333,7 @@ private struct PrivilegeSetupBanner: View {
                     .font(.title2).foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Permission Required").font(.headline)
-                    Text("Thermal Control needs one-time admin access to run powermetrics.")
+                    Text("One-time admin access needed to run powermetrics.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -335,7 +351,7 @@ private struct PrivilegeSetupBanner: View {
                 if isSettingUp {
                     HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Setting up…") }
                 } else {
-                    Label("Grant Access", systemImage: "key.fill")
+                    Label(authMethod.label, systemImage: authMethod.icon)
                 }
             }
             .buttonStyle(.borderedProminent)

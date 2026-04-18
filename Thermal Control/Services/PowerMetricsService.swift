@@ -4,11 +4,14 @@
 //
 
 import Foundation
+import os.log
 
-// Lightweight tagged logger — visible in Xcode console
+private let serviceLog = Logger(subsystem: "com.thermalcontrol", category: "powermetrics")
+
+@available(*, deprecated, message: "Use serviceLog instead")
 private func tcLog(_ msg: String, file: String = #file, line: Int = #line) {
     let f = (file as NSString).lastPathComponent
-    print("[ThermalControl:\(f):\(line)] \(msg)")
+    serviceLog.debug("\(f, privacy: .public):\(line, privacy: .public) \(msg, privacy: .public)")
 }
 
 struct RawThermalSample {
@@ -25,6 +28,25 @@ struct RawThermalSample {
     let prochotCount: Int
 }
 
+// MARK: - Sensor validation
+
+struct SensorValidationError: Error {
+    enum Fault: CustomStringConvertible {
+        case belowPlausible, abovePhysicalMax, staleZero
+        var description: String {
+            switch self {
+            case .belowPlausible:   return "below plausible range"
+            case .abovePhysicalMax: return "above physical maximum"
+            case .staleZero:        return "zero RPM while CPU is warm (possible stall)"
+            }
+        }
+    }
+    let field: String
+    let value: Double
+    let fault: Fault
+    var localizedDescription: String { "\(field)=\(value): \(fault)" }
+}
+
 final class PowerMetricsService {
     private var process: Process?
     private var stdoutPipe: Pipe?
@@ -35,8 +57,21 @@ final class PowerMetricsService {
     var onError: ((String) -> Void)?
     var onPermissionRequired: (() -> Void)?
 
+    private(set) var sampleIntervalMs: Int = 2000
+
+    // Maximum bytes retained in the rolling output buffer before forced truncation.
+    private static let maxBufferBytes = 256 * 1024  // 256 KB
+
+    // Consecutive parse/validation failure counters.
+    private var consecutiveParseFailures = 0
+    private var consecutiveInvalidSamples = 0
+    private static let maxConsecutiveFailures = 10
+
+    /// True when the powermetrics subprocess is alive.
+    var isProcessRunning: Bool { process?.isRunning == true }
+
     func start() {
-        tcLog("start() called")
+        serviceLog.info("start() called")
         queue.async { [weak self] in
             self?.checkPermissionThenLaunch()
         }
@@ -44,26 +79,42 @@ final class PowerMetricsService {
 
     /// Call this after the sudoers entry has been written — skips the permission check.
     func startAfterPrivilegesGranted() {
-        tcLog("startAfterPrivilegesGranted() called — bypassing permission check")
+        serviceLog.info("startAfterPrivilegesGranted() called — bypassing permission check")
         queue.async { [weak self] in
             self?.launchProcess()
         }
     }
 
+    /// Restart with a new sampling interval (e.g. 500ms for smart fan mode).
+    func restartWithInterval(_ ms: Int) {
+        guard ms != sampleIntervalMs else { return }
+        serviceLog.info("restartWithInterval(): changing interval \(self.sampleIntervalMs, privacy: .public)ms → \(ms, privacy: .public)ms")
+        sampleIntervalMs = ms
+        stop()
+        startAfterPrivilegesGranted()
+    }
+
     func stop() {
-        tcLog("stop() called")
+        serviceLog.info("stop() called")
         process?.terminate()
         process = nil
         stdoutPipe = nil
         stderrPipe = nil
         outputBuffer = ""
+        consecutiveParseFailures  = 0
+        consecutiveInvalidSamples = 0
     }
 
     // MARK: - Permission check
 
     /// Quick non-interactive sudo test. Returns true if sudo works without a password.
     static func canRunWithoutPassword() -> Bool {
-        tcLog("canRunWithoutPassword(): running sudo -n /usr/bin/true …")
+        // Fast path: if our sudoers entry was already written, permission is granted.
+        if FileManager.default.fileExists(atPath: "/etc/sudoers.d/thermalcontrol") {
+            serviceLog.debug("canRunWithoutPassword(): sudoers entry exists — skipping live test")
+            return true
+        }
+        serviceLog.debug("canRunWithoutPassword(): running sudo -n /usr/bin/true …")
         let test = Process()
         test.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
         test.arguments = ["-n", "/usr/bin/true"]
@@ -72,17 +123,17 @@ final class PowerMetricsService {
         try? test.run()
         test.waitUntilExit()
         let ok = test.terminationStatus == 0
-        tcLog("canRunWithoutPassword(): result = \(ok) (exit \(test.terminationStatus))")
+        serviceLog.debug("canRunWithoutPassword(): result = \(ok, privacy: .public) (exit \(test.terminationStatus, privacy: .public))")
         return ok
     }
 
     private func checkPermissionThenLaunch() {
-        tcLog("checkPermissionThenLaunch(): testing sudo permission …")
+        serviceLog.debug("checkPermissionThenLaunch(): testing sudo permission …")
         if Self.canRunWithoutPassword() {
-            tcLog("checkPermissionThenLaunch(): permission OK — launching process")
+            serviceLog.debug("checkPermissionThenLaunch(): permission OK — launching process")
             launchProcess()
         } else {
-            tcLog("checkPermissionThenLaunch(): PERMISSION DENIED — firing onPermissionRequired")
+            serviceLog.warning("checkPermissionThenLaunch(): PERMISSION DENIED — firing onPermissionRequired")
             DispatchQueue.main.async { self.onPermissionRequired?() }
         }
     }
@@ -90,59 +141,58 @@ final class PowerMetricsService {
     // MARK: - Launch
 
     private func launchProcess() {
-        tcLog("launchProcess(): setting up Process for /usr/bin/sudo -n /usr/bin/powermetrics …")
+        serviceLog.info("launchProcess(): setting up Process for /usr/bin/sudo -n /usr/bin/powermetrics …")
         let p = Process()
         let outPipe = Pipe()
         let errPipe = Pipe()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
         // Omit -n (sample count) so powermetrics runs indefinitely.
         // "-n 0" is ambiguous across macOS versions and caused immediate exit.
-        p.arguments = ["-n", "/usr/bin/powermetrics", "--samplers", "smc", "-i", "2000"]
+        p.arguments = ["-n", "/usr/bin/powermetrics", "--samplers", "smc", "-i", "\(sampleIntervalMs)"]
         p.standardOutput = outPipe
         p.standardError  = errPipe
 
-        tcLog("launchProcess(): args = \(p.arguments!.joined(separator: " "))")
+        serviceLog.info("launchProcess(): args = \(p.arguments!.joined(separator: " "), privacy: .public)")
 
         // Capture stdout
         outPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty else {
-                tcLog("launchProcess(): stdout EOF — process likely exited")
+                serviceLog.debug("launchProcess(): stdout EOF — process likely exited")
                 return
             }
-            tcLog("launchProcess(): stdout chunk \(data.count) bytes")
             if let chunk = String(data: data, encoding: .utf8) {
                 self?.processChunk(chunk)
             } else {
-                tcLog("launchProcess(): WARNING — could not decode stdout chunk as UTF-8")
+                serviceLog.warning("launchProcess(): could not decode stdout chunk as UTF-8")
             }
         }
 
-        // Capture stderr so it surfaces in Xcode console and doesn't block the pipe buffer
+        // Capture stderr so it surfaces in Console.app and doesn't block the pipe buffer
         errPipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             guard !data.isEmpty else { return }
             let msg = String(data: data, encoding: .utf8) ?? "<non-UTF8>"
-            tcLog("launchProcess(): STDERR from powermetrics → \(msg.trimmingCharacters(in: .whitespacesAndNewlines))")
+            serviceLog.error("powermetrics stderr: \(msg.trimmingCharacters(in: .whitespacesAndNewlines), privacy: .public)")
         }
 
-        p.terminationHandler = { proc in
-            tcLog("launchProcess(): process terminated with status \(proc.terminationStatus) reason \(proc.terminationReason.rawValue)")
+        p.terminationHandler = { [weak self] proc in
+            serviceLog.info("launchProcess(): process terminated status=\(proc.terminationStatus, privacy: .public) reason=\(proc.terminationReason.rawValue, privacy: .public)")
             if proc.terminationStatus != 0 {
                 DispatchQueue.main.async {
-                    self.onError?("powermetrics exited with status \(proc.terminationStatus) — check Xcode console for stderr")
+                    self?.onError?("powermetrics exited with status \(proc.terminationStatus)")
                 }
             }
         }
 
         do {
             try p.run()
-            self.process  = p
+            self.process    = p
             self.stdoutPipe = outPipe
             self.stderrPipe = errPipe
-            tcLog("launchProcess(): process running PID \(p.processIdentifier)")
+            serviceLog.info("launchProcess(): process running PID \(p.processIdentifier, privacy: .public)")
         } catch {
-            tcLog("launchProcess(): FAILED to launch — \(error)")
+            serviceLog.error("launchProcess(): FAILED to launch — \(error.localizedDescription, privacy: .public)")
             DispatchQueue.main.async {
                 self.onError?("Failed to start powermetrics: \(error.localizedDescription)")
             }
@@ -154,13 +204,20 @@ final class PowerMetricsService {
     // powermetrics separates each sample with a "*** Sampled system activity" header line.
     // We only parse once we have at least one complete block (i.e. two header lines).
     private func processChunk(_ chunk: String) {
-        outputBuffer += chunk
-        tcLog("processChunk(): buffer now \(outputBuffer.count) chars")
-
-        // Log first chunk raw so we can see exactly what powermetrics is sending
-        if outputBuffer.count == chunk.count {
-            tcLog("processChunk(): FIRST CHUNK RAW →\n\(chunk.prefix(500))")
+        // Guard against unbounded buffer growth (e.g. powermetrics producing oversized output
+        // during system stress or with additional samplers active).
+        if outputBuffer.utf8.count + chunk.utf8.count > Self.maxBufferBytes {
+            let separator = "*** Sampled system activity"
+            if let lastSep = outputBuffer.range(of: separator, options: .backwards) {
+                outputBuffer = String(outputBuffer[lastSep.lowerBound...])
+                serviceLog.warning("outputBuffer exceeded \(Self.maxBufferBytes, privacy: .public) bytes — truncated to last separator")
+            } else {
+                outputBuffer = ""
+                serviceLog.warning("outputBuffer exceeded limit and no separator found — buffer cleared")
+            }
         }
+
+        outputBuffer += chunk
 
         // Split on the powermetrics block separator
         let separator = "*** Sampled system activity"
@@ -170,13 +227,11 @@ final class PowerMetricsService {
         // A complete sample block is the content between two consecutive headers.
         // We need at least 2 separators to have one complete block.
         guard blocks.count >= 3 else {
-            tcLog("processChunk(): only \(blocks.count) block(s) so far — waiting for complete sample")
             return
         }
 
         // Use the second-to-last complete block (most recent finished sample)
         let blockContent = separator + blocks[blocks.count - 2]
-        tcLog("processChunk(): parsing block (\(blockContent.count) chars)")
 
         let cpuTempRx      = /CPU die temperature:\s+(\d+\.?\d*)\s+C/
         let pressureRx     = /Thermal pressure:\s+(\w+)/
@@ -216,11 +271,42 @@ final class PowerMetricsService {
             if let m = try? prochotRx.firstMatch(in: line)      { prochotCount = Int(m.output.1) }
         }
 
-        tcLog("processChunk(): parsed — cpuTemp=\(cpuTemp.map{"\($0)"} ?? "nil") pressure=\(pressure ?? "nil") cpuLevel=\(cpuLevel.map{"\($0)"} ?? "nil") fan=\(fanRPM.map{"\($0)"} ?? "nil")")
-
         guard let t = cpuTemp else {
-            tcLog("processChunk(): guard failed — cpuTemp still nil in block")
-            tcLog("processChunk(): block content →\n\(blockContent.prefix(800))")
+            consecutiveParseFailures += 1
+            serviceLog.warning("processChunk(): cpuTemp not found in block (miss \(self.consecutiveParseFailures, privacy: .public)/\(Self.maxConsecutiveFailures, privacy: .public))")
+            if consecutiveParseFailures >= Self.maxConsecutiveFailures {
+                let msg = "powermetrics parsing failed \(consecutiveParseFailures) consecutive times"
+                serviceLog.error("\(msg, privacy: .public)")
+                DispatchQueue.main.async { self.onError?(msg) }
+            }
+            // Retain the last partial block to preserve buffered data
+            if let lastSep = outputBuffer.range(of: separator, options: .backwards) {
+                outputBuffer = String(outputBuffer[lastSep.lowerBound...])
+            }
+            return
+        }
+        consecutiveParseFailures = 0
+
+        // ── Sensor plausibility validation ────────────────────────────────────
+        // Reject readings that are physically impossible for the i7-7567U.
+        // 0°C indicates a failed/stale SMC read; > 115°C is above sensor range.
+        do {
+            try validateSample(cpuTemp: t, gpuTemp: gpuTemp ?? 0, fanRPM: fanRPM ?? 0)
+            consecutiveInvalidSamples = 0
+        } catch let e as SensorValidationError {
+            consecutiveInvalidSamples += 1
+            serviceLog.error("Sensor validation FAILED: \(e.localizedDescription, privacy: .public) (consecutive=\(self.consecutiveInvalidSamples, privacy: .public))")
+            if consecutiveInvalidSamples >= Self.maxConsecutiveFailures {
+                let msg = "Sensor validation failed \(consecutiveInvalidSamples) consecutive times — last: \(e.localizedDescription)"
+                DispatchQueue.main.async { self.onError?(msg) }
+            }
+            if let lastSep = outputBuffer.range(of: separator, options: .backwards) {
+                outputBuffer = String(outputBuffer[lastSep.lowerBound...])
+            }
+            return
+        } catch {
+            // Unexpected error type — log and drop the sample
+            serviceLog.error("Unexpected validation error: \(error.localizedDescription, privacy: .public)")
             return
         }
 
@@ -236,7 +322,6 @@ final class PowerMetricsService {
             case 66..<90: inferredPressure = "Heavy"
             default:      inferredPressure = "Trapping"
             }
-            tcLog("processChunk(): pressure inferred from cpuLevel \(level) → \(inferredPressure)")
         }
 
         let sample = RawThermalSample(
@@ -252,13 +337,43 @@ final class PowerMetricsService {
             gpuPLimitExt: gpuPLimitExt ?? 0,
             prochotCount: prochotCount ?? 0
         )
-        tcLog("processChunk(): ✅ sample emitted — cpu=\(t)°C pressure=\(inferredPressure) fan=\(fanRPM ?? 0)rpm")
+        serviceLog.debug("sample emitted: cpu=\(t, privacy: .public)°C pressure=\(inferredPressure, privacy: .public) fan=\(fanRPM ?? 0, privacy: .public)rpm")
         DispatchQueue.main.async { self.onSample?(sample) }
 
         // Keep only the last partial block in the buffer to bound memory usage
         if let lastSep = outputBuffer.range(of: separator, options: .backwards) {
             outputBuffer = String(outputBuffer[lastSep.lowerBound...])
-            tcLog("processChunk(): buffer trimmed, now \(outputBuffer.count) chars")
+        }
+    }
+
+    // MARK: - Sensor validation
+
+    /// Validates that parsed sensor values fall within physically plausible ranges
+    /// for the MacBook Pro 2017 (i7-7567U / Radeon Pro 560).
+    /// - Throws: `SensorValidationError` for the first out-of-range field.
+    private func validateSample(cpuTemp: Double, gpuTemp: Double, fanRPM: Int) throws {
+        // Ambient lower bound: a CPU reading below 10°C cannot occur in any real Mac
+        // use case; it indicates a failed/stale SMC register read.
+        if cpuTemp < 10.0 {
+            throw SensorValidationError(field: "cpuTemp", value: cpuTemp, fault: .belowPlausible)
+        }
+        // i7-7567U Tj,max = 100°C; sensors above 115°C are outside the hardware range.
+        if cpuTemp > 115.0 {
+            throw SensorValidationError(field: "cpuTemp", value: cpuTemp, fault: .abovePhysicalMax)
+        }
+        // GPU temp: only validate when the sensor returned a non-zero value.
+        if gpuTemp > 0 {
+            if gpuTemp < 10.0 {
+                throw SensorValidationError(field: "gpuTemp", value: gpuTemp, fault: .belowPlausible)
+            }
+            if gpuTemp > 115.0 {
+                throw SensorValidationError(field: "gpuTemp", value: gpuTemp, fault: .abovePhysicalMax)
+            }
+        }
+        // A fan stall (RPM == 0) while the CPU is above idle is flagged here so
+        // the caller can increment the stall counter and decide whether to alert.
+        if fanRPM == 0 && cpuTemp > 50.0 {
+            throw SensorValidationError(field: "fanRPM", value: Double(fanRPM), fault: .staleZero)
         }
     }
 }

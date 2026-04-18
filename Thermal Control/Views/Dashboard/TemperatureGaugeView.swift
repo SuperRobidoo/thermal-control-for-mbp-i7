@@ -57,8 +57,8 @@ struct TemperatureGaugeView: View {
                 .aspectRatio(2.1, contentMode: .fit)
                 .frame(maxWidth: .infinity)
 
-            // ── Reading ──
-            VStack(alignment: .leading, spacing: 3) {
+            // ── Reading — centered under arc ──
+            VStack(alignment: .center, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
                     Text(temperature > 0 ? String(format: "%.1f", temperature) : "–")
                         .font(.system(size: 46, weight: .bold, design: .rounded).monospacedDigit())
@@ -75,8 +75,11 @@ struct TemperatureGaugeView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .frame(maxWidth: .infinity)
         }
-        .padding(16)
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 18)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.07), radius: 8, x: 0, y: 2)
     }
