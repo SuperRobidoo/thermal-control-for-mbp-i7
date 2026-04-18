@@ -1,0 +1,720 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		9542E89F2F938836000C17CC /* Thermal_ControlApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9542E89E2F938836000C17CC /* Thermal_ControlApp.swift */; };
+		9542E8A12F938836000C17CC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9542E8A02F938836000C17CC /* ContentView.swift */; };
+		9542E8A32F938836000C17CC /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9542E8A22F938836000C17CC /* Item.swift */; };
+		AB0000012F938836000C17CC /* NotificationSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000012F938836000C17CC /* NotificationSettings.swift */; };
+		AB0000022F938836000C17CC /* TemperatureReading.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000022F938836000C17CC /* TemperatureReading.swift */; };
+		AB0000032F938836000C17CC /* PowerMetricsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000032F938836000C17CC /* PowerMetricsService.swift */; };
+		AB0000042F938836000C17CC /* ThermalMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000042F938836000C17CC /* ThermalMonitor.swift */; };
+		AB0000052F938836000C17CC /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000052F938836000C17CC /* NotificationManager.swift */; };
+		AB0000062F938836000C17CC /* TemperatureGaugeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000062F938836000C17CC /* TemperatureGaugeView.swift */; };
+		AB0000072F938836000C17CC /* ThrottlingStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000072F938836000C17CC /* ThrottlingStatusView.swift */; };
+		AB0000A12F938836000C17CC /* ThermalLevelGaugeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000A12F938836000C17CC /* ThermalLevelGaugeView.swift */; };
+		AB0000B12F938836000C17CC /* FanRPMView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000B12F938836000C17CC /* FanRPMView.swift */; };
+		AB0000C12F938836000C17CC /* PowerLimitRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000C12F938836000C17CC /* PowerLimitRowView.swift */; };
+		AB0000082F938836000C17CC /* MainDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000082F938836000C17CC /* MainDashboardView.swift */; };
+		AB0000092F938836000C17CC /* HistoricalGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000092F938836000C17CC /* HistoricalGraphView.swift */; };
+		AB00000A2F938836000C17CC /* MenuBarPopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000A2F938836000C17CC /* MenuBarPopoverView.swift */; };
+		AB00000B2F938836000C17CC /* NotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000B2F938836000C17CC /* NotificationSettingsView.swift */; };
+		AB0000D12F938836000C17CC /* SMCFanController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000D12F938836000C17CC /* SMCFanController.swift */; };
+		AB0000E12F938836000C17CC /* tc-fan-helper in Resources */ = {isa = PBXBuildFile; fileRef = AA0000E12F938836000C17CC /* tc-fan-helper */; };
+		9542E8A52F938839000C17CC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9542E8A42F938839000C17CC /* Assets.xcassets */; };
+		9542E8A82F938839000C17CC /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9542E8A72F938839000C17CC /* Preview Assets.xcassets */; };
+		9542E8B32F938839000C17CC /* Thermal_ControlTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9542E8B22F938839000C17CC /* Thermal_ControlTests.swift */; };
+		9542E8BD2F938839000C17CC /* Thermal_ControlUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9542E8BC2F938839000C17CC /* Thermal_ControlUITests.swift */; };
+		9542E8BF2F938839000C17CC /* Thermal_ControlUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9542E8BE2F938839000C17CC /* Thermal_ControlUITestsLaunchTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		9542E8AF2F938839000C17CC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9542E8932F938836000C17CC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9542E89A2F938836000C17CC;
+			remoteInfo = "Thermal Control";
+		};
+		9542E8B92F938839000C17CC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9542E8932F938836000C17CC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9542E89A2F938836000C17CC;
+			remoteInfo = "Thermal Control";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		9542E89B2F938836000C17CC /* Thermal Control.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Thermal Control.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9542E89E2F938836000C17CC /* Thermal_ControlApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Thermal_ControlApp.swift; sourceTree = "<group>"; };
+		9542E8A02F938836000C17CC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		9542E8A22F938836000C17CC /* Item.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Item.swift; sourceTree = "<group>"; };
+		9542E8A42F938839000C17CC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		9542E8A72F938839000C17CC /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		9542E8A92F938839000C17CC /* Thermal_Control.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Thermal_Control.entitlements; sourceTree = "<group>"; };
+		AA0000012F938836000C17CC /* NotificationSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettings.swift; sourceTree = "<group>"; };
+		AA0000022F938836000C17CC /* TemperatureReading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemperatureReading.swift; sourceTree = "<group>"; };
+		AA0000032F938836000C17CC /* PowerMetricsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerMetricsService.swift; sourceTree = "<group>"; };
+		AA0000042F938836000C17CC /* ThermalMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalMonitor.swift; sourceTree = "<group>"; };
+		AA0000052F938836000C17CC /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		AA0000062F938836000C17CC /* TemperatureGaugeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemperatureGaugeView.swift; sourceTree = "<group>"; };
+		AA0000072F938836000C17CC /* ThrottlingStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThrottlingStatusView.swift; sourceTree = "<group>"; };
+		AA0000A12F938836000C17CC /* ThermalLevelGaugeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalLevelGaugeView.swift; sourceTree = "<group>"; };
+		AA0000B12F938836000C17CC /* FanRPMView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanRPMView.swift; sourceTree = "<group>"; };
+		AA0000C12F938836000C17CC /* PowerLimitRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerLimitRowView.swift; sourceTree = "<group>"; };
+		AA0000082F938836000C17CC /* MainDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainDashboardView.swift; sourceTree = "<group>"; };
+		AA0000092F938836000C17CC /* HistoricalGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoricalGraphView.swift; sourceTree = "<group>"; };
+		AA00000A2F938836000C17CC /* MenuBarPopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPopoverView.swift; sourceTree = "<group>"; };
+		AA00000B2F938836000C17CC /* NotificationSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsView.swift; sourceTree = "<group>"; };
+		AA0000D12F938836000C17CC /* SMCFanController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCFanController.swift; sourceTree = "<group>"; };
+		AA0000E12F938836000C17CC /* tc-fan-helper */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = "tc-fan-helper"; sourceTree = "<group>"; };
+		9542E8AE2F938839000C17CC /* Thermal ControlTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Thermal ControlTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9542E8B22F938839000C17CC /* Thermal_ControlTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Thermal_ControlTests.swift; sourceTree = "<group>"; };
+		9542E8B82F938839000C17CC /* Thermal ControlUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Thermal ControlUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9542E8BC2F938839000C17CC /* Thermal_ControlUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Thermal_ControlUITests.swift; sourceTree = "<group>"; };
+		9542E8BE2F938839000C17CC /* Thermal_ControlUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Thermal_ControlUITestsLaunchTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9542E8982F938836000C17CC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9542E8AB2F938839000C17CC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9542E8B52F938839000C17CC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		9542E8922F938836000C17CC = {
+			isa = PBXGroup;
+			children = (
+				9542E89D2F938836000C17CC /* Thermal Control */,
+				9542E8B12F938839000C17CC /* Thermal ControlTests */,
+				9542E8BB2F938839000C17CC /* Thermal ControlUITests */,
+				9542E89C2F938836000C17CC /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9542E89C2F938836000C17CC /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9542E89B2F938836000C17CC /* Thermal Control.app */,
+				9542E8AE2F938839000C17CC /* Thermal ControlTests.xctest */,
+				9542E8B82F938839000C17CC /* Thermal ControlUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		9542E89D2F938836000C17CC /* Thermal Control */ = {
+			isa = PBXGroup;
+			children = (
+				9542E89E2F938836000C17CC /* Thermal_ControlApp.swift */,
+				9542E8A02F938836000C17CC /* ContentView.swift */,
+				9542E8A22F938836000C17CC /* Item.swift */,
+				AC0000012F938836000C17CC /* Models */,
+				AC0000022F938836000C17CC /* Services */,
+				AC0000032F938836000C17CC /* Views */,
+				9542E8A42F938839000C17CC /* Assets.xcassets */,
+				9542E8A92F938839000C17CC /* Thermal_Control.entitlements */,
+				AC0000082F938836000C17CC /* Resources */,
+				9542E8A62F938839000C17CC /* Preview Content */,
+			);
+			path = "Thermal Control";
+			sourceTree = "<group>";
+		};
+		9542E8A62F938839000C17CC /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				9542E8A72F938839000C17CC /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		AC0000012F938836000C17CC /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000022F938836000C17CC /* TemperatureReading.swift */,
+				AA0000012F938836000C17CC /* NotificationSettings.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		AC0000022F938836000C17CC /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000032F938836000C17CC /* PowerMetricsService.swift */,
+				AA0000042F938836000C17CC /* ThermalMonitor.swift */,
+				AA0000052F938836000C17CC /* NotificationManager.swift */,
+				AA0000D12F938836000C17CC /* SMCFanController.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		AC0000082F938836000C17CC /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000E12F938836000C17CC /* tc-fan-helper */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		AC0000032F938836000C17CC /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				AC0000042F938836000C17CC /* Dashboard */,
+				AC0000052F938836000C17CC /* History */,
+				AC0000062F938836000C17CC /* MenuBar */,
+				AC0000072F938836000C17CC /* Settings */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		AC0000042F938836000C17CC /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000082F938836000C17CC /* MainDashboardView.swift */,
+				AA0000062F938836000C17CC /* TemperatureGaugeView.swift */,
+				AA0000072F938836000C17CC /* ThrottlingStatusView.swift */,
+				AA0000A12F938836000C17CC /* ThermalLevelGaugeView.swift */,
+				AA0000B12F938836000C17CC /* FanRPMView.swift */,
+				AA0000C12F938836000C17CC /* PowerLimitRowView.swift */,
+			);
+			path = Dashboard;
+			sourceTree = "<group>";
+		};
+		AC0000052F938836000C17CC /* History */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000092F938836000C17CC /* HistoricalGraphView.swift */,
+			);
+			path = History;
+			sourceTree = "<group>";
+		};
+		AC0000062F938836000C17CC /* MenuBar */ = {
+			isa = PBXGroup;
+			children = (
+				AA00000A2F938836000C17CC /* MenuBarPopoverView.swift */,
+			);
+			path = MenuBar;
+			sourceTree = "<group>";
+		};
+		AC0000072F938836000C17CC /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				AA00000B2F938836000C17CC /* NotificationSettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		9542E8B12F938839000C17CC /* Thermal ControlTests */ = {
+			isa = PBXGroup;
+			children = (
+				9542E8B22F938839000C17CC /* Thermal_ControlTests.swift */,
+			);
+			path = "Thermal ControlTests";
+			sourceTree = "<group>";
+		};
+		9542E8BB2F938839000C17CC /* Thermal ControlUITests */ = {
+			isa = PBXGroup;
+			children = (
+				9542E8BC2F938839000C17CC /* Thermal_ControlUITests.swift */,
+				9542E8BE2F938839000C17CC /* Thermal_ControlUITestsLaunchTests.swift */,
+			);
+			path = "Thermal ControlUITests";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		9542E89A2F938836000C17CC /* Thermal Control */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9542E8C22F938839000C17CC /* Build configuration list for PBXNativeTarget "Thermal Control" */;
+			buildPhases = (
+				9542E8972F938836000C17CC /* Sources */,
+				9542E8982F938836000C17CC /* Frameworks */,
+				9542E8992F938836000C17CC /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Thermal Control";
+			productName = "Thermal Control";
+			productReference = 9542E89B2F938836000C17CC /* Thermal Control.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9542E8AD2F938839000C17CC /* Thermal ControlTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9542E8C52F938839000C17CC /* Build configuration list for PBXNativeTarget "Thermal ControlTests" */;
+			buildPhases = (
+				9542E8AA2F938839000C17CC /* Sources */,
+				9542E8AB2F938839000C17CC /* Frameworks */,
+				9542E8AC2F938839000C17CC /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9542E8B02F938839000C17CC /* PBXTargetDependency */,
+			);
+			name = "Thermal ControlTests";
+			productName = "Thermal ControlTests";
+			productReference = 9542E8AE2F938839000C17CC /* Thermal ControlTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		9542E8B72F938839000C17CC /* Thermal ControlUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9542E8C82F938839000C17CC /* Build configuration list for PBXNativeTarget "Thermal ControlUITests" */;
+			buildPhases = (
+				9542E8B42F938839000C17CC /* Sources */,
+				9542E8B52F938839000C17CC /* Frameworks */,
+				9542E8B62F938839000C17CC /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9542E8BA2F938839000C17CC /* PBXTargetDependency */,
+			);
+			name = "Thermal ControlUITests";
+			productName = "Thermal ControlUITests";
+			productReference = 9542E8B82F938839000C17CC /* Thermal ControlUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9542E8932F938836000C17CC /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1520;
+				LastUpgradeCheck = 1520;
+				TargetAttributes = {
+					9542E89A2F938836000C17CC = {
+						CreatedOnToolsVersion = 15.2;
+					};
+					9542E8AD2F938839000C17CC = {
+						CreatedOnToolsVersion = 15.2;
+						TestTargetID = 9542E89A2F938836000C17CC;
+					};
+					9542E8B72F938839000C17CC = {
+						CreatedOnToolsVersion = 15.2;
+						TestTargetID = 9542E89A2F938836000C17CC;
+					};
+				};
+			};
+			buildConfigurationList = 9542E8962F938836000C17CC /* Build configuration list for PBXProject "Thermal Control" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 9542E8922F938836000C17CC;
+			productRefGroup = 9542E89C2F938836000C17CC /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9542E89A2F938836000C17CC /* Thermal Control */,
+				9542E8AD2F938839000C17CC /* Thermal ControlTests */,
+				9542E8B72F938839000C17CC /* Thermal ControlUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		9542E8992F938836000C17CC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9542E8A82F938839000C17CC /* Preview Assets.xcassets in Resources */,
+				9542E8A52F938839000C17CC /* Assets.xcassets in Resources */,
+				AB0000E12F938836000C17CC /* tc-fan-helper in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9542E8AC2F938839000C17CC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9542E8B62F938839000C17CC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9542E8972F938836000C17CC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9542E8A12F938836000C17CC /* ContentView.swift in Sources */,
+				9542E8A32F938836000C17CC /* Item.swift in Sources */,
+				9542E89F2F938836000C17CC /* Thermal_ControlApp.swift in Sources */,
+				AB0000012F938836000C17CC /* NotificationSettings.swift in Sources */,
+				AB0000022F938836000C17CC /* TemperatureReading.swift in Sources */,
+				AB0000032F938836000C17CC /* PowerMetricsService.swift in Sources */,
+				AB0000042F938836000C17CC /* ThermalMonitor.swift in Sources */,
+				AB0000052F938836000C17CC /* NotificationManager.swift in Sources */,
+				AB0000062F938836000C17CC /* TemperatureGaugeView.swift in Sources */,
+				AB0000072F938836000C17CC /* ThrottlingStatusView.swift in Sources */,
+				AB0000082F938836000C17CC /* MainDashboardView.swift in Sources */,
+				AB0000A12F938836000C17CC /* ThermalLevelGaugeView.swift in Sources */,
+				AB0000B12F938836000C17CC /* FanRPMView.swift in Sources */,
+				AB0000C12F938836000C17CC /* PowerLimitRowView.swift in Sources */,
+				AB0000092F938836000C17CC /* HistoricalGraphView.swift in Sources */,
+				AB00000A2F938836000C17CC /* MenuBarPopoverView.swift in Sources */,
+				AB00000B2F938836000C17CC /* NotificationSettingsView.swift in Sources */,
+				AB0000D12F938836000C17CC /* SMCFanController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9542E8AA2F938839000C17CC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9542E8B32F938839000C17CC /* Thermal_ControlTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9542E8B42F938839000C17CC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9542E8BF2F938839000C17CC /* Thermal_ControlUITestsLaunchTests.swift in Sources */,
+				9542E8BD2F938839000C17CC /* Thermal_ControlUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9542E8B02F938839000C17CC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9542E89A2F938836000C17CC /* Thermal Control */;
+			targetProxy = 9542E8AF2F938839000C17CC /* PBXContainerItemProxy */;
+		};
+		9542E8BA2F938839000C17CC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9542E89A2F938836000C17CC /* Thermal Control */;
+			targetProxy = 9542E8B92F938839000C17CC /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		9542E8C02F938839000C17CC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.7;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		9542E8C12F938839000C17CC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.7;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		9542E8C32F938839000C17CC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Thermal Control/Thermal_Control.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"Thermal Control/Preview Content\"";
+				DEVELOPMENT_TEAM = T5KS4KD3F9;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "se.mofield.Thermal-Control";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		9542E8C42F938839000C17CC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Thermal Control/Thermal_Control.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"Thermal Control/Preview Content\"";
+				DEVELOPMENT_TEAM = T5KS4KD3F9;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "se.mofield.Thermal-Control";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		9542E8C62F938839000C17CC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = T5KS4KD3F9;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "se.mofield.Thermal-ControlTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Thermal Control.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Thermal Control";
+			};
+			name = Debug;
+		};
+		9542E8C72F938839000C17CC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = T5KS4KD3F9;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "se.mofield.Thermal-ControlTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Thermal Control.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Thermal Control";
+			};
+			name = Release;
+		};
+		9542E8C92F938839000C17CC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = T5KS4KD3F9;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "se.mofield.Thermal-ControlUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = "Thermal Control";
+			};
+			name = Debug;
+		};
+		9542E8CA2F938839000C17CC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = T5KS4KD3F9;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "se.mofield.Thermal-ControlUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = "Thermal Control";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9542E8962F938836000C17CC /* Build configuration list for PBXProject "Thermal Control" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9542E8C02F938839000C17CC /* Debug */,
+				9542E8C12F938839000C17CC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9542E8C22F938839000C17CC /* Build configuration list for PBXNativeTarget "Thermal Control" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9542E8C32F938839000C17CC /* Debug */,
+				9542E8C42F938839000C17CC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9542E8C52F938839000C17CC /* Build configuration list for PBXNativeTarget "Thermal ControlTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9542E8C62F938839000C17CC /* Debug */,
+				9542E8C72F938839000C17CC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9542E8C82F938839000C17CC /* Build configuration list for PBXNativeTarget "Thermal ControlUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9542E8C92F938839000C17CC /* Debug */,
+				9542E8CA2F938839000C17CC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 9542E8932F938836000C17CC /* Project object */;
+}

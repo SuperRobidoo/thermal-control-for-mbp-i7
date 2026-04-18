@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# Xcode user-specific data
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# Build products and package manager artifacts
+build/
+DerivedData/
+.build/
+
+# SwiftPM
+.swiftpm/
+Package.resolved
+
+# Test and profiling artifacts
+*.profdata
+*.profraw
+
+# Archives
+*.xcarchive
+*.dSYM
+
+# Temporary/editor files
+*.swp
+*.swo
+*~
