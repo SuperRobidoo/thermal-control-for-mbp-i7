@@ -178,10 +178,10 @@ final class SMCFanController: ObservableObject {
                                            isThrottling: isThrottling)
         DispatchQueue.main.async { self.optimizedTargetRPM = target }
 
-        // Ramp up if target rose by ≥ 150 RPM, ramp down only if it dropped ≥ 500 RPM.
-        // Wider bands prevent chattering from the smoothed signal's residual noise.
+        // Ramp up if target rose by ≥ 300 RPM, ramp down only if it dropped ≥ 800 RPM.
+        // Large bands mean the fan only moves when there is a meaningful sustained change.
         let delta = target - optimizedLastSetRPM
-        guard delta > 150 || delta < -500 else { return }
+        guard delta > 300 || delta < -800 else { return }
         optimizedLastSetRPM = target
         applyRPM(target)
     }
@@ -195,9 +195,9 @@ final class SMCFanController: ObservableObject {
 
         // ── Input smoothing (EMA) ────────────────────────────────────────────
         // Package power spikes heavily with Turbo Boost (e.g. 5W → 28W in one
-        // 500ms sample). Smooth it with α=0.30 (τ ≈ 1.3 s at 500ms sampling)
-        // so brief bursts don't drive big fan steps.
-        let alphaPower: Double = 0.30
+        // 500ms sample). Smooth with α=0.12 (τ ≈ 3.9 s at 500ms sampling) so
+        // brief bursts barely move the EMA.
+        let alphaPower: Double = 0.12
         smoothedPowerW = smoothedPowerW == 0
             ? packagePowerW                                         // seed on first sample
             : smoothedPowerW + alphaPower * (packagePowerW - smoothedPowerW)
@@ -221,10 +221,9 @@ final class SMCFanController: ObservableObject {
                  + powerFactor * 0.30
 
         // ── Output smoothing (EMA) ───────────────────────────────────────────
-        // Smooth the aggregated factor with α=0.20 (τ ≈ 2.25 s at 500ms sampling).
-        // This absorbs residual noise after per-signal smoothing and prevents
-        // the fan from hunting on sustained but noisy workloads.
-        let alphaF: Double = 0.20
+        // Smooth the aggregated factor with α=0.08 (τ ≈ 5.9 s at 500ms sampling).
+        // The fan only tracks sustained workloads, not momentary noise.
+        let alphaF: Double = 0.08
         smoothedF = smoothedF == 0
             ? rawF
             : smoothedF + alphaF * (rawF - smoothedF)
