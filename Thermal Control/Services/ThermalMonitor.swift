@@ -255,8 +255,8 @@ final class ThermalMonitor: ObservableObject {
         case .auto:
             fanController.setAuto()
             service.restartWithInterval(2000)
-        case .smart:
-            fanController.setSmartMode()
+        case .aggressive:
+            fanController.setAggressiveMode()
             service.restartWithInterval(500)  // 4× faster sampling for quick reaction
         case .manual:
             fanController.mode = .manual
@@ -320,8 +320,8 @@ final class ThermalMonitor: ObservableObject {
 
         // Smart fan mode: run control algorithm on every sample.
         // Skip if an emergency override is active — the override takes precedence.
-        if fanController.mode == .smart && !emergencyFanMaxActive {
-            fanController.updateSmartMode(
+        if fanController.mode == .aggressive && !emergencyFanMaxActive {
+            fanController.updateAggressiveMode(
                 cpuTemp:         sample.cpuTemperature,
                 cpuThermalLevel: sample.cpuThermalLevel,
                 gpuTemp:         sample.gpuTemperature,

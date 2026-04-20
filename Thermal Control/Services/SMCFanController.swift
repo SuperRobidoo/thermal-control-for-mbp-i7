@@ -18,8 +18,8 @@ private let fanLog = Logger(subsystem: "com.thermalcontrol", category: "fan")
 enum FanControlMode: Equatable {
     /// SMC firmware decides fan speed automatically.
     case auto
-    /// App adaptively sets fan speed to prevent thermal throttling.
-    case smart
+    /// App aggressively pre-spins the fan to prevent thermal throttling.
+    case aggressive
     /// User has set a fixed target RPM.
     case manual
 }
@@ -52,10 +52,10 @@ final class SMCFanController: ObservableObject {
     @Published var minRPM: Double = 2000
     @Published var maxRPM: Double = 6200
     @Published var fanCount: Int = 2
-    /// RPM the smart algorithm last commanded (shown in UI).
-    @Published var smartTargetRPM: Double = 0
+    /// RPM the aggressive algorithm last commanded (shown in UI).
+    @Published var aggressiveTargetRPM: Double = 0
 
-    private var smartLastSetRPM: Double = 0
+    private var aggressiveLastSetRPM: Double = 0
     private var lastApplyTime: Date = .distantPast
     private var lastAppliedRPM: Double = 0
 
@@ -133,7 +133,7 @@ final class SMCFanController: ObservableObject {
     /// Switch fans back to automatic SMC control.
     func setAuto(completion: ((Bool) -> Void)? = nil) {
         mode = .auto
-        smartLastSetRPM = 0
+        aggressiveLastSetRPM = 0
         runHelper(args: ["auto"]) { [weak self] output in
             let ok = output?.trimmingCharacters(in: .whitespacesAndNewlines) == "ok"
             DispatchQueue.main.async {
@@ -143,43 +143,43 @@ final class SMCFanController: ObservableObject {
         }
     }
 
-    /// Enter smart adaptive mode — first sample will set the initial RPM.
-    func setSmartMode() {
-        mode = .smart
-        smartLastSetRPM = 0
+    /// Enter aggressive mode — first sample will set the initial RPM.
+    func setAggressiveMode() {
+        mode = .aggressive
+        aggressiveLastSetRPM = 0
     }
 
     /// Set a manual target RPM for all fans.
     func setManual(rpm: Double, completion: ((Bool) -> Void)? = nil) {
-        if mode != .smart { mode = .manual }
+        if mode != .aggressive { mode = .manual }
         applyRPM(rpm, completion: completion)
     }
 
     // MARK: - Smart algorithm
 
-    /// Called on every new thermal sample when mode == .smart.
-    func updateSmartMode(cpuTemp: Double, cpuThermalLevel: Int,
-                         gpuTemp: Double, gpuThermalLevel: Int,
-                         isThrottling: Bool) {
-        guard mode == .smart else { return }
-        let target = calculateSmartRPM(cpuTemp: cpuTemp,
-                                       cpuThermalLevel: cpuThermalLevel,
-                                       gpuTemp: gpuTemp,
-                                       gpuThermalLevel: gpuThermalLevel,
-                                       isThrottling: isThrottling)
-        DispatchQueue.main.async { self.smartTargetRPM = target }
+    /// Called on every new thermal sample when mode == .aggressive.
+    func updateAggressiveMode(cpuTemp: Double, cpuThermalLevel: Int,
+                              gpuTemp: Double, gpuThermalLevel: Int,
+                              isThrottling: Bool) {
+        guard mode == .aggressive else { return }
+        let target = calculateAggressiveRPM(cpuTemp: cpuTemp,
+                                            cpuThermalLevel: cpuThermalLevel,
+                                            gpuTemp: gpuTemp,
+                                            gpuThermalLevel: gpuThermalLevel,
+                                            isThrottling: isThrottling)
+        DispatchQueue.main.async { self.aggressiveTargetRPM = target }
 
         // Ramp up if target rose by ≥ 50 RPM, ramp down only if it dropped ≥ 400 RPM.
         // Tight ramp-up reacts quickly; wide ramp-down avoids hunting during cool-down.
-        let delta = target - smartLastSetRPM
+        let delta = target - aggressiveLastSetRPM
         guard delta > 50 || delta < -400 else { return }
-        smartLastSetRPM = target
+        aggressiveLastSetRPM = target
         applyRPM(target)
     }
 
-    private func calculateSmartRPM(cpuTemp: Double, cpuThermalLevel: Int,
-                                   gpuTemp: Double, gpuThermalLevel: Int,
-                                   isThrottling: Bool) -> Double {
+    private func calculateAggressiveRPM(cpuTemp: Double, cpuThermalLevel: Int,
+                                        gpuTemp: Double, gpuThermalLevel: Int,
+                                        isThrottling: Bool) -> Double {
         // Immediately go to max if the system is already throttling.
         if isThrottling { return maxRPM }
 
@@ -199,9 +199,9 @@ final class SMCFanController: ObservableObject {
         // f=0.25 → 6%, f=0.50 → 25%, f=0.75 → 56%, f=1.0 → 100%
         let curve = f * f
 
-        // Baseline: 15% above minimum — just a nudge above Apple auto.
-        // Full RPM range is progressively unlocked as thermals climb.
-        let baseline = minRPM + (maxRPM - minRPM) * 0.15
+        // Baseline: 30% above minimum — a noticeable step above Apple auto even at idle,
+        // providing a thermal head-start before temperatures begin climbing.
+        let baseline = minRPM + (maxRPM - minRPM) * 0.30
         let target   = baseline + (maxRPM - baseline) * curve
 
         return target.clamped(minRPM, maxRPM)

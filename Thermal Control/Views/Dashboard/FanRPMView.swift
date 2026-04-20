@@ -57,17 +57,17 @@ struct FanRPMView: View {
                     .foregroundStyle(.secondary)
             }
 
-            // ── Smart mode target ──
-            if fc.mode == .smart {
+            // ── Aggressive mode target ──
+            if fc.mode == .aggressive {
                 HStack {
                     Image(systemName: "bolt.fill")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(.orange)
-                    Text("Smart target")
+                    Text("Aggressive target")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Text(verbatim: String(format: "%d RPM", Int(fc.smartTargetRPM)))
+                    Text(verbatim: String(format: "%d RPM", Int(fc.aggressiveTargetRPM)))
                         .font(.system(size: 12, weight: .semibold, design: .rounded).monospacedDigit())
                         .foregroundStyle(.orange)
                 }
@@ -92,15 +92,14 @@ struct FanRPMView: View {
                     modeButton(label: "Auto",   isActive: fc.mode == .auto,   accent: .secondary) {
                         monitor.setFanControlMode(.auto)
                     }
-                    modeButton(label: "Smart",  isActive: fc.mode == .smart,  accent: .orange) {
-                        monitor.setFanControlMode(.smart)
+                    modeButton(label: "Aggressive", isActive: fc.mode == .aggressive, accent: .orange) {
+                        monitor.setFanControlMode(.aggressive)
                     }
                     modeButton(label: "Manual", isActive: fc.mode == .manual, accent: .blue) {
                         monitor.setFanControlMode(.manual)
                         sliderRPM = max(fc.minRPM, min(fc.maxRPM,
                                    fc.targetRPM > 0 ? fc.targetRPM : fc.minRPM))
-                    }
-                }
+                    }                }
                 .frame(maxWidth: .infinity)
                 .background(Color.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
             }
@@ -132,9 +131,9 @@ struct FanRPMView: View {
                 .padding(.top, 2)
             }
 
-            // ── Smart mode explanation ──
-            if fc.isAvailable && fc.mode == .smart {
-                Text("Monitors CPU and GPU thermals every 0.5 s and boosts fan before throttling occurs.")
+            // ── Aggressive mode explanation ──
+            if fc.isAvailable && fc.mode == .aggressive {
+                Text("Runs fan above auto baseline and boosts from CPU and GPU thermals every 0.5 s to prevent throttling.")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -167,11 +166,11 @@ struct FanRPMView: View {
     @ViewBuilder
     private var modeBadge: some View {
         switch fc.mode {
-        case .smart:
+        case .aggressive:
             HStack(spacing: 3) {
                 Image(systemName: "bolt.fill")
                     .font(.system(size: 9, weight: .semibold))
-                Text("Smart")
+                Text("Aggressive")
                     .font(.system(size: 10, weight: .semibold))
             }
             .foregroundStyle(.white)
