@@ -267,8 +267,8 @@ final class ThermalMonitor: ObservableObject {
         case .auto:
             fanController.setAuto()
             service.restartWithInterval(2000)
-        case .aggressive:
-            fanController.setAggressiveMode()
+        case .optimized:
+            fanController.setOptimizedMode()
             service.restartWithInterval(500)  // 4× faster sampling for quick reaction
         case .manual:
             fanController.mode = .manual
@@ -334,8 +334,8 @@ final class ThermalMonitor: ObservableObject {
         coresActivePct    = sample.coresActivePct
         gpuActivePct      = sample.gpuActivePct
 
-        if fanController.mode == .aggressive && !emergencyFanMaxActive {
-            fanController.updateAggressiveMode(
+        if fanController.mode == .optimized && !emergencyFanMaxActive {
+            fanController.updateOptimizedMode(
                 cpuTemp:         sample.cpuTemperature,
                 cpuThermalLevel: sample.cpuThermalLevel,
                 gpuTemp:         sample.gpuTemperature,

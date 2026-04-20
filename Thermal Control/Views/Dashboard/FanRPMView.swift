@@ -57,17 +57,17 @@ struct FanRPMView: View {
                     .foregroundStyle(.secondary)
             }
 
-            // ── Aggressive mode target ──
-            if fc.mode == .aggressive {
+            // ── Optimized mode target ──
+            if fc.mode == .optimized {
                 HStack {
-                    Image(systemName: "bolt.fill")
+                    Image(systemName: "slider.horizontal.3")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(.orange)
-                    Text("Aggressive target")
+                    Text("Optimized target")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Text(verbatim: String(format: "%d RPM", Int(fc.aggressiveTargetRPM)))
+                    Text(verbatim: String(format: "%d RPM", Int(fc.optimizedTargetRPM)))
                         .font(.system(size: 12, weight: .semibold, design: .rounded).monospacedDigit())
                         .foregroundStyle(.orange)
                 }
@@ -92,8 +92,8 @@ struct FanRPMView: View {
                     modeButton(label: "Auto",   isActive: fc.mode == .auto,   accent: .secondary) {
                         monitor.setFanControlMode(.auto)
                     }
-                    modeButton(label: "Aggressive", isActive: fc.mode == .aggressive, accent: .orange) {
-                        monitor.setFanControlMode(.aggressive)
+                    modeButton(label: "Optimized", isActive: fc.mode == .optimized, accent: .orange) {
+                        monitor.setFanControlMode(.optimized)
                     }
                     modeButton(label: "Manual", isActive: fc.mode == .manual, accent: .blue) {
                         monitor.setFanControlMode(.manual)
@@ -131,9 +131,9 @@ struct FanRPMView: View {
                 .padding(.top, 2)
             }
 
-            // ── Aggressive mode explanation ──
-            if fc.isAvailable && fc.mode == .aggressive {
-                Text("Runs fan above auto baseline and boosts from CPU and GPU thermals every 0.5 s to prevent throttling.")
+            // ── Optimized mode explanation ──
+            if fc.isAvailable && fc.mode == .optimized {
+                Text("Runs fan above auto baseline with smoothed response to CPU, GPU, and package power — reacts early to workloads without hunting or chatter.")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -166,11 +166,11 @@ struct FanRPMView: View {
     @ViewBuilder
     private var modeBadge: some View {
         switch fc.mode {
-        case .aggressive:
+        case .optimized:
             HStack(spacing: 3) {
-                Image(systemName: "bolt.fill")
+                Image(systemName: "slider.horizontal.3")
                     .font(.system(size: 9, weight: .semibold))
-                Text("Aggressive")
+                Text("Optimized")
                     .font(.system(size: 10, weight: .semibold))
             }
             .foregroundStyle(.white)

@@ -19,7 +19,7 @@ enum FanControlMode: Equatable {
     /// SMC firmware decides fan speed automatically.
     case auto
     /// App aggressively pre-spins the fan to prevent thermal throttling.
-    case aggressive
+    case optimized
     /// User has set a fixed target RPM.
     case manual
 }
@@ -52,10 +52,13 @@ final class SMCFanController: ObservableObject {
     @Published var minRPM: Double = 2000
     @Published var maxRPM: Double = 6200
     @Published var fanCount: Int = 2
-    /// RPM the aggressive algorithm last commanded (shown in UI).
-    @Published var aggressiveTargetRPM: Double = 0
+    /// RPM the optimized algorithm last commanded (shown in UI).
+    @Published var optimizedTargetRPM: Double = 0
 
-    private var aggressiveLastSetRPM: Double = 0
+    private var optimizedLastSetRPM: Double = 0
+    // EMA state for input smoothing — reduces fan chatter from momentary spikes.
+    private var smoothedPowerW: Double = 0    // EMA of packagePowerW (α=0.30)
+    private var smoothedF: Double      = 0    // EMA of aggregated factor (α=0.20)
     private var lastApplyTime: Date = .distantPast
     private var lastAppliedRPM: Double = 0
 
@@ -133,7 +136,9 @@ final class SMCFanController: ObservableObject {
     /// Switch fans back to automatic SMC control.
     func setAuto(completion: ((Bool) -> Void)? = nil) {
         mode = .auto
-        aggressiveLastSetRPM = 0
+        optimizedLastSetRPM = 0
+        smoothedPowerW = 0
+        smoothedF      = 0
         runHelper(args: ["auto"]) { [weak self] output in
             let ok = output?.trimmingCharacters(in: .whitespacesAndNewlines) == "ok"
             DispatchQueue.main.async {
@@ -143,74 +148,93 @@ final class SMCFanController: ObservableObject {
         }
     }
 
-    /// Enter aggressive mode — first sample will set the initial RPM.
-    func setAggressiveMode() {
-        mode = .aggressive
-        aggressiveLastSetRPM = 0
+    /// Enter optimized mode — first sample will set the initial RPM.
+    func setOptimizedMode() {
+        mode = .optimized
+        optimizedLastSetRPM = 0
+        smoothedPowerW = 0
+        smoothedF      = 0
     }
 
     /// Set a manual target RPM for all fans.
     func setManual(rpm: Double, completion: ((Bool) -> Void)? = nil) {
-        if mode != .aggressive { mode = .manual }
+        if mode != .optimized { mode = .manual }
         applyRPM(rpm, completion: completion)
     }
 
-    // MARK: - Smart algorithm
+    // MARK: - Optimized algorithm
 
-    /// Called on every new thermal sample when mode == .aggressive.
-    func updateAggressiveMode(cpuTemp: Double, cpuThermalLevel: Int,
-                              gpuTemp: Double, gpuThermalLevel: Int,
-                              packagePowerW: Double,
-                              isThrottling: Bool) {
-        guard mode == .aggressive else { return }
-        let target = calculateAggressiveRPM(cpuTemp: cpuTemp,
-                                            cpuThermalLevel: cpuThermalLevel,
-                                            gpuTemp: gpuTemp,
-                                            gpuThermalLevel: gpuThermalLevel,
-                                            packagePowerW: packagePowerW,
-                                            isThrottling: isThrottling)
-        DispatchQueue.main.async { self.aggressiveTargetRPM = target }
+    /// Called on every new thermal sample when mode == .optimized.
+    func updateOptimizedMode(cpuTemp: Double, cpuThermalLevel: Int,
+                             gpuTemp: Double, gpuThermalLevel: Int,
+                             packagePowerW: Double,
+                             isThrottling: Bool) {
+        guard mode == .optimized else { return }
+        let target = calculateOptimizedRPM(cpuTemp: cpuTemp,
+                                           cpuThermalLevel: cpuThermalLevel,
+                                           gpuTemp: gpuTemp,
+                                           gpuThermalLevel: gpuThermalLevel,
+                                           packagePowerW: packagePowerW,
+                                           isThrottling: isThrottling)
+        DispatchQueue.main.async { self.optimizedTargetRPM = target }
 
-        // Ramp up if target rose by ≥ 50 RPM, ramp down only if it dropped ≥ 400 RPM.
-        // Tight ramp-up reacts quickly; wide ramp-down avoids hunting during cool-down.
-        let delta = target - aggressiveLastSetRPM
-        guard delta > 50 || delta < -400 else { return }
-        aggressiveLastSetRPM = target
+        // Ramp up if target rose by ≥ 150 RPM, ramp down only if it dropped ≥ 500 RPM.
+        // Wider bands prevent chattering from the smoothed signal's residual noise.
+        let delta = target - optimizedLastSetRPM
+        guard delta > 150 || delta < -500 else { return }
+        optimizedLastSetRPM = target
         applyRPM(target)
     }
 
-    private func calculateAggressiveRPM(cpuTemp: Double, cpuThermalLevel: Int,
-                                        gpuTemp: Double, gpuThermalLevel: Int,
-                                        packagePowerW: Double,
-                                        isThrottling: Bool) -> Double {
-        // Only go to max when pressure is Heavy or Trapping (severity ≥ 2 — passed in
-        // as isThrottling=true from ThermalMonitor). Moderate is passed as false so the
-        // curve handles it proportionally instead of slamming straight to maxRPM.
+    private func calculateOptimizedRPM(cpuTemp: Double, cpuThermalLevel: Int,
+                                       gpuTemp: Double, gpuThermalLevel: Int,
+                                       packagePowerW: Double,
+                                       isThrottling: Bool) -> Double {
+        // Only go to max when pressure is Heavy or Trapping (severity ≥ 2).
         if isThrottling { return maxRPM }
 
-        // Temperature factors: 55°C → 0.0, 95°C → 1.0 (same envelope for CPU and GPU).
+        // ── Input smoothing (EMA) ────────────────────────────────────────────
+        // Package power spikes heavily with Turbo Boost (e.g. 5W → 28W in one
+        // 500ms sample). Smooth it with α=0.30 (τ ≈ 1.3 s at 500ms sampling)
+        // so brief bursts don't drive big fan steps.
+        let alphaPower: Double = 0.30
+        smoothedPowerW = smoothedPowerW == 0
+            ? packagePowerW                                         // seed on first sample
+            : smoothedPowerW + alphaPower * (packagePowerW - smoothedPowerW)
+
+        // ── Per-sensor factors ───────────────────────────────────────────────
+        // Temperature: 55°C → 0.0, 95°C → 1.0 (same envelope for CPU and GPU).
         let cpuTempFactor  = ((cpuTemp - 55.0) / 40.0).clamped(0, 1)
-        // Only include GPU temp when the sensor returned a valid reading (> 0).
         let gpuTempFactor  = gpuTemp > 0 ? ((gpuTemp - 55.0) / 40.0).clamped(0, 1) : 0
 
-        // Thermal level factors (Apple's 0–100 scale).
+        // Thermal level (Apple's 0–100 scale).
         let cpuLevelFactor = (Double(cpuThermalLevel) / 100.0).clamped(0, 1)
         let gpuLevelFactor = (Double(gpuThermalLevel) / 100.0).clamped(0, 1)
 
-        // Package power factor: 0W → 0.0, 28W (TDP) → 1.0.
-        // This is a leading indicator — power rises before temperature, so the fan
-        // starts ramping as soon as a workload begins, not after heat accumulates.
-        let powerFactor = (packagePowerW / 28.0).clamped(0, 1)
+        // Power: 0W → 0.0, 28W (TDP) → 1.0 — leading indicator, already smoothed.
+        let powerFactor = (smoothedPowerW / 28.0).clamped(0, 1)
 
-        // Drive from whichever sensor is under the most stress.
-        let f = max(cpuTempFactor, gpuTempFactor, cpuLevelFactor, gpuLevelFactor, powerFactor)
+        // Combine: temperature is the authoritative signal; power is an early
+        // warning. Use weighted average so a single spiking factor doesn't
+        // dominate the way a bare max() would.
+        let rawF = max(cpuTempFactor, gpuTempFactor, cpuLevelFactor, gpuLevelFactor) * 0.70
+                 + powerFactor * 0.30
 
-        // Quadratic curve: gentle at low-f, escalates in the upper half.
+        // ── Output smoothing (EMA) ───────────────────────────────────────────
+        // Smooth the aggregated factor with α=0.20 (τ ≈ 2.25 s at 500ms sampling).
+        // This absorbs residual noise after per-signal smoothing and prevents
+        // the fan from hunting on sustained but noisy workloads.
+        let alphaF: Double = 0.20
+        smoothedF = smoothedF == 0
+            ? rawF
+            : smoothedF + alphaF * (rawF - smoothedF)
+
+        // ── Fan curve ────────────────────────────────────────────────────────
+        // Quadratic: gentle at low-f, escalates in the upper half.
         // f=0.25 → 6%, f=0.50 → 25%, f=0.75 → 56%, f=1.0 → 100%
-        let curve = f * f
+        let curve = smoothedF * smoothedF
 
-        // Baseline: 30% above minimum — a noticeable step above Apple auto even at idle,
-        // providing a thermal head-start before temperatures begin climbing.
+        // Baseline: 30% above minimum — a noticeable head-start above Apple auto.
         let baseline = minRPM + (maxRPM - minRPM) * 0.30
         let target   = baseline + (maxRPM - baseline) * curve
 
