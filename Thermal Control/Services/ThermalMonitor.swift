@@ -325,15 +325,18 @@ final class ThermalMonitor: ObservableObject {
         gpuPLimitExt    = sample.gpuPLimitExt
         prochotCount    = sample.prochotCount
 
-        // Smart fan mode: run control algorithm on every sample.
+        // Aggressive fan mode: run control algorithm on every sample.
         // Skip if an emergency override is active — the override takes precedence.
+        // Only signal isThrottling=true for Heavy or Trapping pressure (severity ≥ 2).
+        // Moderate (severity 1) is mild — let the curve algorithm handle it; jumping
+        // straight to maxRPM for Moderate caused the fan to go to ~6000 RPM at 60°C.
         if fanController.mode == .aggressive && !emergencyFanMaxActive {
             fanController.updateAggressiveMode(
                 cpuTemp:         sample.cpuTemperature,
                 cpuThermalLevel: sample.cpuThermalLevel,
                 gpuTemp:         sample.gpuTemperature,
                 gpuThermalLevel: sample.gpuThermalLevel,
-                isThrottling:    pressure.isThrottling
+                isThrottling:    pressure.severity >= 2
             )
         }
 

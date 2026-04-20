@@ -180,7 +180,9 @@ final class SMCFanController: ObservableObject {
     private func calculateAggressiveRPM(cpuTemp: Double, cpuThermalLevel: Int,
                                         gpuTemp: Double, gpuThermalLevel: Int,
                                         isThrottling: Bool) -> Double {
-        // Immediately go to max if the system is already throttling.
+        // Only go to max when pressure is Heavy or Trapping (severity ≥ 2 — passed in
+        // as isThrottling=true from ThermalMonitor). Moderate is passed as false so the
+        // curve handles it proportionally instead of slamming straight to maxRPM.
         if isThrottling { return maxRPM }
 
         // Temperature factors: 55°C → 0.0, 95°C → 1.0 (same envelope for CPU and GPU).
