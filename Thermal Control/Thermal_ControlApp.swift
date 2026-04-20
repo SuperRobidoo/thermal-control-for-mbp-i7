@@ -52,9 +52,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         source.setEventHandler { [weak self] in
             appLog.info("SIGTERM received — resetting SMC fan control before exit")
             if let fc = self?.monitor?.fanController, fc.mode != .auto {
-                fc.setAuto()
-                // Allow 300 ms for the async helper call to dispatch
-                Thread.sleep(forTimeInterval: 0.3)
+                // Run the helper synchronously, same as applicationWillTerminate.
+                // setAuto() is async (dispatches to a background queue) and cannot
+                // be relied upon before exit(0) — use a direct Process with timeout.
+                let p = Process()
+                p.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
+                p.arguments     = ["-n", SMCFanController.helperInstallPath, "auto"]
+                p.standardOutput = Pipe()
+                p.standardError  = Pipe()
+                guard (try? p.run()) != nil else { exit(0) }
+                let deadline = Date().addingTimeInterval(0.5)
+                while p.isRunning && Date() < deadline {
+                    Thread.sleep(forTimeInterval: 0.05)
+                }
+                if p.isRunning {
+                    appLog.warning("SIGTERM: helper did not finish within timeout — terminating it")
+                    p.terminate()
+                }
             }
             exit(0)
         }

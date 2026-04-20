@@ -215,8 +215,12 @@ final class ThermalMonitor: ObservableObject {
         let helperInstall = SMCFanController.helperInstallPath
         let sudoersLine = "\(user) ALL=(root) NOPASSWD: /usr/bin/powermetrics, \(helperInstall)"
         let bundledHelper = Bundle.main.url(forResource: "tc-fan-helper", withExtension: nil)?.path ?? ""
+        // Shell-escape single quotes so paths containing apostrophes (e.g. "User's Apps")
+        // don't break the single-quoted shell arguments. Replace ' with '\''
+        let escapedHelper  = bundledHelper.replacingOccurrences(of: "'", with: "'\\''")
+        let escapedInstall = helperInstall.replacingOccurrences(of: "'", with: "'\\''")
         let installPart = bundledHelper.isEmpty ? "" :
-            "mkdir -p /usr/local/bin && cp '\(bundledHelper)' '\(helperInstall)' && chmod 755 '\(helperInstall)' && "
+            "mkdir -p /usr/local/bin && cp '\(escapedHelper)' '\(escapedInstall)' && chmod 755 '\(escapedInstall)' && "
         return "\(installPart)printf '%s\\n' '\(sudoersLine)' > /etc/sudoers.d/thermalcontrol && chmod 440 /etc/sudoers.d/thermalcontrol"
     }
 
@@ -251,6 +255,9 @@ final class ThermalMonitor: ObservableObject {
 
     /// Change the fan control mode, switching sampling rate if needed.
     func setFanControlMode(_ newMode: FanControlMode) {
+        // Re-arm the emergency override so it can trigger again if the CPU is still
+        // hot after the mode change (the new mode may not have the fan at max).
+        emergencyFanMaxActive = false
         switch newMode {
         case .auto:
             fanController.setAuto()
@@ -407,6 +414,9 @@ final class ThermalMonitor: ObservableObject {
                 if self.fanController.mode != .auto {
                     self.fanController.setAuto()
                 }
+                // Re-arm the emergency flag so it can re-trigger if temperature is
+                // still critical when samples resume (fan was just reset to auto).
+                self.emergencyFanMaxActive = false
                 self.lastSampleDate = Date()  // reset to prevent re-entry before restart completes
                 self.service.stop()
                 self.service.startAfterPrivilegesGranted()

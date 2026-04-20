@@ -32,12 +32,11 @@ struct RawThermalSample {
 
 struct SensorValidationError: Error {
     enum Fault: CustomStringConvertible {
-        case belowPlausible, abovePhysicalMax, staleZero
+        case belowPlausible, abovePhysicalMax
         var description: String {
             switch self {
             case .belowPlausible:   return "below plausible range"
             case .abovePhysicalMax: return "above physical maximum"
-            case .staleZero:        return "zero RPM while CPU is warm (possible stall)"
             }
         }
     }
@@ -209,8 +208,19 @@ final class PowerMetricsService {
         if outputBuffer.utf8.count + chunk.utf8.count > Self.maxBufferBytes {
             let separator = "*** Sampled system activity"
             if let lastSep = outputBuffer.range(of: separator, options: .backwards) {
-                outputBuffer = String(outputBuffer[lastSep.lowerBound...])
-                serviceLog.warning("outputBuffer exceeded \(Self.maxBufferBytes, privacy: .public) bytes — truncated to last separator")
+                let truncated = String(outputBuffer[lastSep.lowerBound...])
+                // The parser requires at least two separators to produce one complete block.
+                // If only one separator remains after truncation, the parser would stall
+                // until the next separator arrives. Clear the buffer instead and accept
+                // the loss of this partial block.
+                let sepCount = truncated.components(separatedBy: separator).count - 1
+                if sepCount >= 2 {
+                    outputBuffer = truncated
+                    serviceLog.warning("outputBuffer exceeded \(Self.maxBufferBytes, privacy: .public) bytes — truncated to last two separators")
+                } else {
+                    outputBuffer = ""
+                    serviceLog.warning("outputBuffer exceeded limit; too few separators after truncation — buffer cleared")
+                }
             } else {
                 outputBuffer = ""
                 serviceLog.warning("outputBuffer exceeded limit and no separator found — buffer cleared")
@@ -351,6 +361,10 @@ final class PowerMetricsService {
     /// Validates that parsed sensor values fall within physically plausible ranges
     /// for the MacBook Pro 2017 (i7-7567U / Radeon Pro 560).
     /// - Throws: `SensorValidationError` for the first out-of-range field.
+    /// NOTE: Zero RPM is intentionally NOT rejected here. A stall while the CPU
+    /// is warm is a valid (and safety-critical) reading that must reach
+    /// ThermalMonitor.checkFanStall(). Blocking it here would blind emergency
+    /// thermal protection during the exact scenario it is designed for.
     private func validateSample(cpuTemp: Double, gpuTemp: Double, fanRPM: Int) throws {
         // Ambient lower bound: a CPU reading below 10°C cannot occur in any real Mac
         // use case; it indicates a failed/stale SMC register read.
@@ -369,11 +383,6 @@ final class PowerMetricsService {
             if gpuTemp > 115.0 {
                 throw SensorValidationError(field: "gpuTemp", value: gpuTemp, fault: .abovePhysicalMax)
             }
-        }
-        // A fan stall (RPM == 0) while the CPU is above idle is flagged here so
-        // the caller can increment the stall counter and decide whether to alert.
-        if fanRPM == 0 && cpuTemp > 50.0 {
-            throw SensorValidationError(field: "fanRPM", value: Double(fanRPM), fault: .staleZero)
         }
     }
 }
