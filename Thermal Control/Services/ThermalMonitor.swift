@@ -5,6 +5,7 @@
 
 import Foundation
 import LocalAuthentication
+import AppKit
 import os.log
 
 // MARK: - Loggers
@@ -62,6 +63,7 @@ final class ThermalMonitor: ObservableObject {
     private let notificationManager = NotificationManager.shared
     private let maxHistoryDuration: TimeInterval = 3 * 60 * 60 // 3 hours
     private var saveTimer: Timer?
+    private var wakeObserver: Any?
 
     // MARK: - Thermal safety state
 
@@ -141,6 +143,11 @@ final class ThermalMonitor: ObservableObject {
         service.start()
         lastSampleDate = Date()  // initialise so watchdog doesn't fire immediately
         startWatchdog()
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in self?.handleSystemWake() }
         saveTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             self?.saveHistory()
         }
@@ -228,6 +235,10 @@ final class ThermalMonitor: ObservableObject {
         monitorLog.info("ThermalMonitor.stop() called")
         watchdogTimer?.invalidate()
         watchdogTimer = nil
+        if let obs = wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(obs)
+            wakeObserver = nil
+        }
         // Restore automatic fan control before quitting
         if fanController.mode != .auto {
             fanController.setAuto()
@@ -258,6 +269,9 @@ final class ThermalMonitor: ObservableObject {
 
         // Stamp receipt time so the watchdog can detect a stale stream.
         lastSampleDate = Date()
+
+        // Clear any stale-stream or restart error banner now that data is flowing.
+        if errorMessage != nil { errorMessage = nil }
 
         // ── Fan-stall check (runs before any control logic) ──────────────────
         checkFanStall(fanRPM: sample.fanRPM, cpuTemp: sample.cpuTemperature)
@@ -364,6 +378,16 @@ final class ThermalMonitor: ObservableObject {
     }
 
     // MARK: - Sample-stream watchdog
+
+    /// Called immediately when macOS wakes from sleep — proactively restarts the
+    /// powermetrics service instead of waiting for the watchdog to detect staleness.
+    private func handleSystemWake() {
+        monitorLog.info("System woke from sleep — restarting thermal service")
+        errorMessage = nil
+        lastSampleDate = Date()   // keep watchdog calm during the restart gap
+        service.stop()
+        service.startAfterPrivilegesGranted()
+    }
 
     /// Starts (or restarts) the watchdog timer that detects a stale powermetrics stream.
     private func startWatchdog() {
