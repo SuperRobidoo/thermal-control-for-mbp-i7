@@ -10,14 +10,35 @@ struct PowerLimitRowView: View {
     var gpuPLimitInt: Double
     var gpuPLimitExt: Double
     var prochotCount: Int
+    // cpu_power sampler fields
+    var packagePowerW: Double
+    var cpuFreqNominalPct: Double
 
     var body: some View {
-        HStack(spacing: 10) {
-            StatCard(label: "CPU Plimit",  value: String(format: "%.2f%%", cpuPLimit),    isAlert: cpuPLimit > 0)
-            StatCard(label: "GPU Plimit",  value: String(format: "%.2f%%", gpuPLimitInt),  isAlert: gpuPLimitInt > 0)
-            StatCard(label: "GPU Ext",     value: String(format: "%.2f%%", gpuPLimitExt),  isAlert: gpuPLimitExt > 0)
-            StatCard(label: "Prochots",    value: "\(prochotCount)",                        isAlert: prochotCount > 0,
-                     icon: prochotCount > 0 ? "bolt.trianglebadge.exclamationmark.fill" : nil)
+        VStack(spacing: 8) {
+            // Power-limit row (unchanged)
+            HStack(spacing: 10) {
+                StatCard(label: "CPU Plimit",  value: String(format: "%.2f%%", cpuPLimit),    isAlert: cpuPLimit > 0)
+                StatCard(label: "GPU Plimit",  value: String(format: "%.2f%%", gpuPLimitInt),  isAlert: gpuPLimitInt > 0)
+                StatCard(label: "GPU Ext",     value: String(format: "%.2f%%", gpuPLimitExt),  isAlert: gpuPLimitExt > 0)
+                StatCard(label: "Prochots",    value: "\(prochotCount)",                        isAlert: prochotCount > 0,
+                         icon: prochotCount > 0 ? "bolt.trianglebadge.exclamationmark.fill" : nil)
+            }
+            // Power & load row (cpu_power sampler)
+            HStack(spacing: 10) {
+                StatCard(
+                    label:   "Pkg Power",
+                    value:   String(format: "%.1f W", packagePowerW),
+                    isAlert: packagePowerW > 25,  // approaching 28W TDP
+                    icon:    packagePowerW > 25 ? "flame.fill" : nil
+                )
+                StatCard(
+                    label:   "CPU Freq",
+                    // < 95% = measurable frequency throttling; highlight in amber
+                    value:   String(format: "%.1f%%", cpuFreqNominalPct),
+                    isAlert: cpuFreqNominalPct > 0 && cpuFreqNominalPct < 95
+                )
+            }
         }
     }
 }
@@ -63,8 +84,10 @@ private struct StatCard: View {
 
 #Preview {
     VStack(spacing: 12) {
-        PowerLimitRowView(cpuPLimit: 0, gpuPLimitInt: 0, gpuPLimitExt: 0, prochotCount: 0)
-        PowerLimitRowView(cpuPLimit: 12.5, gpuPLimitInt: 0, gpuPLimitExt: 0, prochotCount: 2)
+        PowerLimitRowView(cpuPLimit: 0, gpuPLimitInt: 0, gpuPLimitExt: 0, prochotCount: 0,
+                          packagePowerW: 8.5, cpuFreqNominalPct: 100)
+        PowerLimitRowView(cpuPLimit: 12.5, gpuPLimitInt: 0, gpuPLimitExt: 0, prochotCount: 2,
+                          packagePowerW: 27.3, cpuFreqNominalPct: 82)
     }
     .padding()
     .frame(width: 520)

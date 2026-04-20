@@ -23,6 +23,12 @@ struct TemperatureReading: Identifiable, Codable {
     let gpuPLimitExt: Double
     let prochotCount: Int
 
+    // cpu_power sampler metrics
+    let packagePowerW: Double      // Intel energy-model package power (W)
+    let cpuFreqNominalPct: Double  // Average CPU frequency as % of nominal (< 100 = throttled)
+    let coresActivePct: Double     // % of logical cores active
+    let gpuActivePct: Double       // Integrated GPU busy %
+
     init(
         timestamp: Date,
         cpuTemperature: Double,
@@ -36,7 +42,11 @@ struct TemperatureReading: Identifiable, Codable {
         cpuPLimit: Double = 0,
         gpuPLimitInt: Double = 0,
         gpuPLimitExt: Double = 0,
-        prochotCount: Int = 0
+        prochotCount: Int = 0,
+        packagePowerW: Double = 0,
+        cpuFreqNominalPct: Double = 0,
+        coresActivePct: Double = 0,
+        gpuActivePct: Double = 0
     ) {
         self.id = UUID()
         self.timestamp = timestamp
@@ -52,6 +62,10 @@ struct TemperatureReading: Identifiable, Codable {
         self.gpuPLimitInt = gpuPLimitInt
         self.gpuPLimitExt = gpuPLimitExt
         self.prochotCount = prochotCount
+        self.packagePowerW = packagePowerW
+        self.cpuFreqNominalPct = cpuFreqNominalPct
+        self.coresActivePct = coresActivePct
+        self.gpuActivePct = gpuActivePct
     }
 
     // Custom decoding with defaults so old JSON history still loads
@@ -62,14 +76,18 @@ struct TemperatureReading: Identifiable, Codable {
         cpuTemperature = try c.decode(Double.self, forKey: .cpuTemperature)
         thermalPressure = try c.decode(String.self, forKey: .thermalPressure)
         isThrottling = try c.decode(Bool.self, forKey: .isThrottling)
-        cpuThermalLevel = try c.decodeIfPresent(Int.self, forKey: .cpuThermalLevel) ?? 0
-        gpuThermalLevel = try c.decodeIfPresent(Int.self, forKey: .gpuThermalLevel) ?? 0
-        ioThermalLevel  = try c.decodeIfPresent(Int.self, forKey: .ioThermalLevel) ?? 0
-        fanRPM          = try c.decodeIfPresent(Int.self, forKey: .fanRPM) ?? 0
-        gpuTemperature  = try c.decodeIfPresent(Double.self, forKey: .gpuTemperature) ?? 0
-        cpuPLimit       = try c.decodeIfPresent(Double.self, forKey: .cpuPLimit) ?? 0
-        gpuPLimitInt    = try c.decodeIfPresent(Double.self, forKey: .gpuPLimitInt) ?? 0
-        gpuPLimitExt    = try c.decodeIfPresent(Double.self, forKey: .gpuPLimitExt) ?? 0
-        prochotCount    = try c.decodeIfPresent(Int.self, forKey: .prochotCount) ?? 0
+        cpuThermalLevel    = try c.decodeIfPresent(Int.self,    forKey: .cpuThermalLevel)    ?? 0
+        gpuThermalLevel    = try c.decodeIfPresent(Int.self,    forKey: .gpuThermalLevel)    ?? 0
+        ioThermalLevel     = try c.decodeIfPresent(Int.self,    forKey: .ioThermalLevel)     ?? 0
+        fanRPM             = try c.decodeIfPresent(Int.self,    forKey: .fanRPM)             ?? 0
+        gpuTemperature     = try c.decodeIfPresent(Double.self, forKey: .gpuTemperature)     ?? 0
+        cpuPLimit          = try c.decodeIfPresent(Double.self, forKey: .cpuPLimit)          ?? 0
+        gpuPLimitInt       = try c.decodeIfPresent(Double.self, forKey: .gpuPLimitInt)       ?? 0
+        gpuPLimitExt       = try c.decodeIfPresent(Double.self, forKey: .gpuPLimitExt)       ?? 0
+        prochotCount       = try c.decodeIfPresent(Int.self,    forKey: .prochotCount)       ?? 0
+        packagePowerW      = try c.decodeIfPresent(Double.self, forKey: .packagePowerW)      ?? 0
+        cpuFreqNominalPct  = try c.decodeIfPresent(Double.self, forKey: .cpuFreqNominalPct)  ?? 0
+        coresActivePct     = try c.decodeIfPresent(Double.self, forKey: .coresActivePct)     ?? 0
+        gpuActivePct       = try c.decodeIfPresent(Double.self, forKey: .gpuActivePct)       ?? 0
     }
 }

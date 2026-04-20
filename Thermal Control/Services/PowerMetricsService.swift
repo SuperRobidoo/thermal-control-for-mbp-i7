@@ -26,6 +26,11 @@ struct RawThermalSample {
     let gpuPLimitInt: Double
     let gpuPLimitExt: Double
     let prochotCount: Int
+    // cpu_power sampler fields (leading-indicator data)
+    let packagePowerW: Double      // Intel energy-model package power (CPU+GT+SA)
+    let cpuFreqNominalPct: Double  // Average frequency as % of nominal (< 100 = throttled)
+    let coresActivePct: Double     // % of logical cores active
+    let gpuActivePct: Double       // Integrated GPU busy %
 }
 
 // MARK: - Sensor validation
@@ -147,7 +152,7 @@ final class PowerMetricsService {
         p.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
         // Omit -n (sample count) so powermetrics runs indefinitely.
         // "-n 0" is ambiguous across macOS versions and caused immediate exit.
-        p.arguments = ["-n", "/usr/bin/powermetrics", "--samplers", "smc", "-i", "\(sampleIntervalMs)"]
+        p.arguments = ["-n", "/usr/bin/powermetrics", "--samplers", "smc,cpu_power", "-i", "\(sampleIntervalMs)"]
         p.standardOutput = outPipe
         p.standardError  = errPipe
 
@@ -254,6 +259,11 @@ final class PowerMetricsService {
         let gpuPlimitIntRx = /GPU Plimit \(Int\):\s+(\d+\.?\d*)/
         let gpuPlimitExtRx = /GPU2 Plimit \(Ext1\):\s+(\d+\.?\d*)/
         let prochotRx      = /Number of prochots:\s+(\d+)/
+        // cpu_power sampler fields
+        let pkgPowerRx     = /Intel energy model derived package power \(CPUs\+GT\+SA\):\s+(\d+\.?\d*)\s*W/
+        let cpuFreqRx      = /System Average frequency as fraction of nominal:\s+(\d+\.?\d*)%/
+        let coresActiveRx  = /Cores Active:\s+(\d+\.?\d*)%/
+        let gpuActiveRx    = /GPU Active:\s+(\d+\.?\d*)%/
 
         var cpuTemp: Double?
         var pressure: String?
@@ -266,19 +276,27 @@ final class PowerMetricsService {
         var gpuPLimitInt: Double?
         var gpuPLimitExt: Double?
         var prochotCount: Int?
+        var packagePowerW: Double?
+        var cpuFreqNominalPct: Double?
+        var coresActivePct: Double?
+        var gpuActivePct: Double?
 
         for line in blockContent.components(separatedBy: "\n") {
-            if let m = try? cpuTempRx.firstMatch(in: line)      { cpuTemp      = Double(m.output.1) }
-            if let m = try? pressureRx.firstMatch(in: line)     { pressure     = String(m.output.1) }
-            if let m = try? cpuLevelRx.firstMatch(in: line)     { cpuLevel     = Int(m.output.1) }
-            if let m = try? gpuLevelRx.firstMatch(in: line)     { gpuLevel     = Int(m.output.1) }
-            if let m = try? ioLevelRx.firstMatch(in: line)      { ioLevel      = Int(m.output.1) }
-            if let m = try? fanRx.firstMatch(in: line)          { fanRPM       = Int(m.output.1) }
-            if let m = try? gpuTempRx.firstMatch(in: line)      { gpuTemp      = Double(m.output.1) }
-            if let m = try? cpuPlimitRx.firstMatch(in: line)    { cpuPLimit    = Double(m.output.1) }
-            if let m = try? gpuPlimitIntRx.firstMatch(in: line) { gpuPLimitInt = Double(m.output.1) }
-            if let m = try? gpuPlimitExtRx.firstMatch(in: line) { gpuPLimitExt = Double(m.output.1) }
-            if let m = try? prochotRx.firstMatch(in: line)      { prochotCount = Int(m.output.1) }
+            if let m = try? cpuTempRx.firstMatch(in: line)      { cpuTemp           = Double(m.output.1) }
+            if let m = try? pressureRx.firstMatch(in: line)     { pressure          = String(m.output.1) }
+            if let m = try? cpuLevelRx.firstMatch(in: line)     { cpuLevel          = Int(m.output.1) }
+            if let m = try? gpuLevelRx.firstMatch(in: line)     { gpuLevel          = Int(m.output.1) }
+            if let m = try? ioLevelRx.firstMatch(in: line)      { ioLevel           = Int(m.output.1) }
+            if let m = try? fanRx.firstMatch(in: line)          { fanRPM            = Int(m.output.1) }
+            if let m = try? gpuTempRx.firstMatch(in: line)      { gpuTemp           = Double(m.output.1) }
+            if let m = try? cpuPlimitRx.firstMatch(in: line)    { cpuPLimit         = Double(m.output.1) }
+            if let m = try? gpuPlimitIntRx.firstMatch(in: line) { gpuPLimitInt      = Double(m.output.1) }
+            if let m = try? gpuPlimitExtRx.firstMatch(in: line) { gpuPLimitExt      = Double(m.output.1) }
+            if let m = try? prochotRx.firstMatch(in: line)      { prochotCount      = Int(m.output.1) }
+            if let m = try? pkgPowerRx.firstMatch(in: line)     { packagePowerW     = Double(m.output.1) }
+            if let m = try? cpuFreqRx.firstMatch(in: line)      { cpuFreqNominalPct = Double(m.output.1) }
+            if let m = try? coresActiveRx.firstMatch(in: line)  { coresActivePct    = Double(m.output.1) }
+            if let m = try? gpuActiveRx.firstMatch(in: line)    { gpuActivePct      = Double(m.output.1) }
         }
 
         guard let t = cpuTemp else {
@@ -335,19 +353,23 @@ final class PowerMetricsService {
         }
 
         let sample = RawThermalSample(
-            cpuTemperature: t,
-            thermalPressure: inferredPressure,
-            cpuThermalLevel: cpuLevel ?? 0,
-            gpuThermalLevel: gpuLevel ?? 0,
-            ioThermalLevel: ioLevel ?? 0,
-            fanRPM: fanRPM ?? 0,
-            gpuTemperature: gpuTemp ?? 0,
-            cpuPLimit: cpuPLimit ?? 0,
-            gpuPLimitInt: gpuPLimitInt ?? 0,
-            gpuPLimitExt: gpuPLimitExt ?? 0,
-            prochotCount: prochotCount ?? 0
+            cpuTemperature:   t,
+            thermalPressure:  inferredPressure,
+            cpuThermalLevel:  cpuLevel ?? 0,
+            gpuThermalLevel:  gpuLevel ?? 0,
+            ioThermalLevel:   ioLevel ?? 0,
+            fanRPM:           fanRPM ?? 0,
+            gpuTemperature:   gpuTemp ?? 0,
+            cpuPLimit:        cpuPLimit ?? 0,
+            gpuPLimitInt:     gpuPLimitInt ?? 0,
+            gpuPLimitExt:     gpuPLimitExt ?? 0,
+            prochotCount:     prochotCount ?? 0,
+            packagePowerW:    packagePowerW ?? 0,
+            cpuFreqNominalPct: cpuFreqNominalPct ?? 0,
+            coresActivePct:   coresActivePct ?? 0,
+            gpuActivePct:     gpuActivePct ?? 0
         )
-        serviceLog.debug("sample emitted: cpu=\(t, privacy: .public)°C pressure=\(inferredPressure, privacy: .public) fan=\(fanRPM ?? 0, privacy: .public)rpm")
+        serviceLog.debug("sample emitted: cpu=\(t, privacy: .public)°C pkg=\(packagePowerW ?? 0, privacy: .public)W freq=\(cpuFreqNominalPct ?? 0, privacy: .public)% fan=\(fanRPM ?? 0, privacy: .public)rpm")
         DispatchQueue.main.async { self.onSample?(sample) }
 
         // Keep only the last partial block in the buffer to bound memory usage

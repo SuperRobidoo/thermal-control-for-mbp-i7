@@ -58,6 +58,11 @@ final class ThermalMonitor: ObservableObject {
     @Published var gpuPLimitInt: Double = 0.0
     @Published var gpuPLimitExt: Double = 0.0
     @Published var prochotCount: Int = 0
+    // cpu_power sampler metrics
+    @Published var packagePowerW: Double = 0.0
+    @Published var cpuFreqNominalPct: Double = 0.0
+    @Published var coresActivePct: Double = 0.0
+    @Published var gpuActivePct: Double = 0.0
 
     private let service = PowerMetricsService()
     private let notificationManager = NotificationManager.shared
@@ -324,36 +329,40 @@ final class ThermalMonitor: ObservableObject {
         gpuPLimitInt    = sample.gpuPLimitInt
         gpuPLimitExt    = sample.gpuPLimitExt
         prochotCount    = sample.prochotCount
+        packagePowerW     = sample.packagePowerW
+        cpuFreqNominalPct = sample.cpuFreqNominalPct
+        coresActivePct    = sample.coresActivePct
+        gpuActivePct      = sample.gpuActivePct
 
-        // Aggressive fan mode: run control algorithm on every sample.
-        // Skip if an emergency override is active — the override takes precedence.
-        // Only signal isThrottling=true for Heavy or Trapping pressure (severity ≥ 2).
-        // Moderate (severity 1) is mild — let the curve algorithm handle it; jumping
-        // straight to maxRPM for Moderate caused the fan to go to ~6000 RPM at 60°C.
         if fanController.mode == .aggressive && !emergencyFanMaxActive {
             fanController.updateAggressiveMode(
                 cpuTemp:         sample.cpuTemperature,
                 cpuThermalLevel: sample.cpuThermalLevel,
                 gpuTemp:         sample.gpuTemperature,
                 gpuThermalLevel: sample.gpuThermalLevel,
+                packagePowerW:   sample.packagePowerW,
                 isThrottling:    pressure.severity >= 2
             )
         }
 
         let reading = TemperatureReading(
-            timestamp: Date(),
-            cpuTemperature: sample.cpuTemperature,
-            thermalPressure: sample.thermalPressure,
-            isThrottling: pressure.isThrottling,
-            cpuThermalLevel: sample.cpuThermalLevel,
-            gpuThermalLevel: sample.gpuThermalLevel,
-            ioThermalLevel: sample.ioThermalLevel,
-            fanRPM: sample.fanRPM,
-            gpuTemperature: sample.gpuTemperature,
-            cpuPLimit: sample.cpuPLimit,
-            gpuPLimitInt: sample.gpuPLimitInt,
-            gpuPLimitExt: sample.gpuPLimitExt,
-            prochotCount: sample.prochotCount
+            timestamp:        Date(),
+            cpuTemperature:   sample.cpuTemperature,
+            thermalPressure:  sample.thermalPressure,
+            isThrottling:     pressure.isThrottling,
+            cpuThermalLevel:  sample.cpuThermalLevel,
+            gpuThermalLevel:  sample.gpuThermalLevel,
+            ioThermalLevel:   sample.ioThermalLevel,
+            fanRPM:           sample.fanRPM,
+            gpuTemperature:   sample.gpuTemperature,
+            cpuPLimit:        sample.cpuPLimit,
+            gpuPLimitInt:     sample.gpuPLimitInt,
+            gpuPLimitExt:     sample.gpuPLimitExt,
+            prochotCount:     sample.prochotCount,
+            packagePowerW:    sample.packagePowerW,
+            cpuFreqNominalPct: sample.cpuFreqNominalPct,
+            coresActivePct:   sample.coresActivePct,
+            gpuActivePct:     sample.gpuActivePct
         )
         recentReadings.append(reading)
 

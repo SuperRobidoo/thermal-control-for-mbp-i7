@@ -160,12 +160,14 @@ final class SMCFanController: ObservableObject {
     /// Called on every new thermal sample when mode == .aggressive.
     func updateAggressiveMode(cpuTemp: Double, cpuThermalLevel: Int,
                               gpuTemp: Double, gpuThermalLevel: Int,
+                              packagePowerW: Double,
                               isThrottling: Bool) {
         guard mode == .aggressive else { return }
         let target = calculateAggressiveRPM(cpuTemp: cpuTemp,
                                             cpuThermalLevel: cpuThermalLevel,
                                             gpuTemp: gpuTemp,
                                             gpuThermalLevel: gpuThermalLevel,
+                                            packagePowerW: packagePowerW,
                                             isThrottling: isThrottling)
         DispatchQueue.main.async { self.aggressiveTargetRPM = target }
 
@@ -179,6 +181,7 @@ final class SMCFanController: ObservableObject {
 
     private func calculateAggressiveRPM(cpuTemp: Double, cpuThermalLevel: Int,
                                         gpuTemp: Double, gpuThermalLevel: Int,
+                                        packagePowerW: Double,
                                         isThrottling: Bool) -> Double {
         // Only go to max when pressure is Heavy or Trapping (severity ≥ 2 — passed in
         // as isThrottling=true from ThermalMonitor). Moderate is passed as false so the
@@ -194,8 +197,13 @@ final class SMCFanController: ObservableObject {
         let cpuLevelFactor = (Double(cpuThermalLevel) / 100.0).clamped(0, 1)
         let gpuLevelFactor = (Double(gpuThermalLevel) / 100.0).clamped(0, 1)
 
+        // Package power factor: 0W → 0.0, 28W (TDP) → 1.0.
+        // This is a leading indicator — power rises before temperature, so the fan
+        // starts ramping as soon as a workload begins, not after heat accumulates.
+        let powerFactor = (packagePowerW / 28.0).clamped(0, 1)
+
         // Drive from whichever sensor is under the most stress.
-        let f = max(cpuTempFactor, gpuTempFactor, cpuLevelFactor, gpuLevelFactor)
+        let f = max(cpuTempFactor, gpuTempFactor, cpuLevelFactor, gpuLevelFactor, powerFactor)
 
         // Quadratic curve: gentle at low-f, escalates in the upper half.
         // f=0.25 → 6%, f=0.50 → 25%, f=0.75 → 56%, f=1.0 → 100%

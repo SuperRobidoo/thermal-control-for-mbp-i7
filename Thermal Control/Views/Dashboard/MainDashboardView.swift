@@ -65,10 +65,12 @@ struct MainDashboardView: View {
 
                 // ── Row 4: Power limits ──
                 PowerLimitRowView(
-                    cpuPLimit:    monitor.cpuPLimit,
-                    gpuPLimitInt: monitor.gpuPLimitInt,
-                    gpuPLimitExt: monitor.gpuPLimitExt,
-                    prochotCount: monitor.prochotCount
+                    cpuPLimit:        monitor.cpuPLimit,
+                    gpuPLimitInt:     monitor.gpuPLimitInt,
+                    gpuPLimitExt:     monitor.gpuPLimitExt,
+                    prochotCount:     monitor.prochotCount,
+                    packagePowerW:    monitor.packagePowerW,
+                    cpuFreqNominalPct: monitor.cpuFreqNominalPct
                 )
 
                 // Error banner
