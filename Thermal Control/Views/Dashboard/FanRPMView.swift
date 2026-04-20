@@ -134,7 +134,7 @@ struct FanRPMView: View {
 
             // ── Smart mode explanation ──
             if fc.isAvailable && fc.mode == .smart {
-                Text("Monitors thermal level every 0.5 s and boosts fan before throttling occurs.")
+                Text("Monitors CPU and GPU thermals every 0.5 s and boosts fan before throttling occurs.")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

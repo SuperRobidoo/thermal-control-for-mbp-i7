@@ -324,6 +324,8 @@ final class ThermalMonitor: ObservableObject {
             fanController.updateSmartMode(
                 cpuTemp:         sample.cpuTemperature,
                 cpuThermalLevel: sample.cpuThermalLevel,
+                gpuTemp:         sample.gpuTemperature,
+                gpuThermalLevel: sample.gpuThermalLevel,
                 isThrottling:    pressure.isThrottling
             )
         }

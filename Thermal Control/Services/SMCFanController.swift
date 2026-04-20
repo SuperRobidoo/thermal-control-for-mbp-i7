@@ -158,42 +158,49 @@ final class SMCFanController: ObservableObject {
     // MARK: - Smart algorithm
 
     /// Called on every new thermal sample when mode == .smart.
-    func updateSmartMode(cpuTemp: Double, cpuThermalLevel: Int, isThrottling: Bool) {
+    func updateSmartMode(cpuTemp: Double, cpuThermalLevel: Int,
+                         gpuTemp: Double, gpuThermalLevel: Int,
+                         isThrottling: Bool) {
         guard mode == .smart else { return }
         let target = calculateSmartRPM(cpuTemp: cpuTemp,
                                        cpuThermalLevel: cpuThermalLevel,
+                                       gpuTemp: gpuTemp,
+                                       gpuThermalLevel: gpuThermalLevel,
                                        isThrottling: isThrottling)
         DispatchQueue.main.async { self.smartTargetRPM = target }
 
-        // Aggressive ramp-up (> 100 RPM), slow ramp-down (> 400 RPM gap).
-        // This pre-empts throttling quickly while avoiding fan hunting during cool-down.
+        // Ramp up if target rose by ≥ 50 RPM, ramp down only if it dropped ≥ 400 RPM.
+        // Tight ramp-up reacts quickly; wide ramp-down avoids hunting during cool-down.
         let delta = target - smartLastSetRPM
-        guard delta > 100 || delta < -400 else { return }
+        guard delta > 50 || delta < -400 else { return }
         smartLastSetRPM = target
         applyRPM(target)
     }
 
-    private func calculateSmartRPM(cpuTemp: Double, cpuThermalLevel: Int, isThrottling: Bool) -> Double {
-        // Immediately go to max if the CPU is already throttling.
+    private func calculateSmartRPM(cpuTemp: Double, cpuThermalLevel: Int,
+                                   gpuTemp: Double, gpuThermalLevel: Int,
+                                   isThrottling: Bool) -> Double {
+        // Immediately go to max if the system is already throttling.
         if isThrottling { return maxRPM }
 
-        // Temperature factor: 55°C → 0, 95°C → 1
-        // Starts ramping earlier than Apple auto but uses a wider window.
-        let tempFactor  = ((cpuTemp - 55.0) / 40.0).clamped(0, 1)
+        // Temperature factors: 55°C → 0.0, 95°C → 1.0 (same envelope for CPU and GPU).
+        let cpuTempFactor  = ((cpuTemp - 55.0) / 40.0).clamped(0, 1)
+        // Only include GPU temp when the sensor returned a valid reading (> 0).
+        let gpuTempFactor  = gpuTemp > 0 ? ((gpuTemp - 55.0) / 40.0).clamped(0, 1) : 0
 
-        // Thermal level factor: 0 → 0, 100 → 1
-        // Divided by 100 so level 31 ("Normal") only contributes 31%, not 36%.
-        let levelFactor = (Double(cpuThermalLevel) / 100.0).clamped(0, 1)
+        // Thermal level factors (Apple's 0–100 scale).
+        let cpuLevelFactor = (Double(cpuThermalLevel) / 100.0).clamped(0, 1)
+        let gpuLevelFactor = (Double(gpuThermalLevel) / 100.0).clamped(0, 1)
 
-        // Use whichever sensor reads hotter.
-        let f = max(tempFactor, levelFactor)
+        // Drive from whichever sensor is under the most stress.
+        let f = max(cpuTempFactor, gpuTempFactor, cpuLevelFactor, gpuLevelFactor)
 
-        // Quadratic curve: gentle at low-f, escalates meaningfully in the upper half.
+        // Quadratic curve: gentle at low-f, escalates in the upper half.
         // f=0.25 → 6%, f=0.50 → 25%, f=0.75 → 56%, f=1.0 → 100%
         let curve = f * f
 
-        // Baseline: only 15% above minimum — just a nudge above Apple auto.
-        // Full RPM range is progressively unlocked as temps climb.
+        // Baseline: 15% above minimum — just a nudge above Apple auto.
+        // Full RPM range is progressively unlocked as thermals climb.
         let baseline = minRPM + (maxRPM - minRPM) * 0.15
         let target   = baseline + (maxRPM - baseline) * curve
 
