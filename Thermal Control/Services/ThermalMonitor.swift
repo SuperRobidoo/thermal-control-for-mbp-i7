@@ -78,6 +78,7 @@ final class ThermalMonitor: ObservableObject {
     private static let criticalTempThreshold:  Double = 100.0
     private static let emergencyHysteresis:    Double = 5.0   // °C below threshold before releasing
     private var emergencyFanMaxActive = false
+    private var criticalAlertSent     = false  // prevents repeated sleep/alert at Tj,max
 
     // Fan-stall detection
     private static let fanStallRPMThreshold:  Int    = 300    // RPM below which a stall is suspected
@@ -292,32 +293,46 @@ final class ThermalMonitor: ObservableObject {
 
         // ── Emergency thermal ceiling ─────────────────────────────────────────
         if sample.cpuTemperature >= Self.criticalTempThreshold {
-            safetyLog.critical("CPU \(sample.cpuTemperature, privacy: .public)°C ≥ Tj,max \(Self.criticalTempThreshold). Forcing fans to max and requesting system sleep.")
-            notificationManager.sendCriticalOverheatAlert(temp: sample.cpuTemperature)
-            fanController.setFanMaxEmergency()
-            // Allow fans 2 s to spin up then request system sleep.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                if let script = NSAppleScript(source: "tell application \"System Events\" to sleep") {
-                    script.executeAndReturnError(nil)
+            // Guard with criticalAlertSent so we only fire once per episode —
+            // without this the notification and sleep request re-fire on every
+            // 500ms sample while the CPU stays at Tj,max.
+            if !criticalAlertSent {
+                criticalAlertSent = true
+                safetyLog.critical("CPU \(sample.cpuTemperature, privacy: .public)°C ≥ Tj,max \(Self.criticalTempThreshold). Forcing fans to max and requesting system sleep.")
+                notificationManager.sendCriticalOverheatAlert(temp: sample.cpuTemperature)
+                fanController.setFanMaxEmergency()
+                // Allow fans 2 s to spin up then request system sleep.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    if let script = NSAppleScript(source: "tell application \"System Events\" to sleep") {
+                        script.executeAndReturnError(nil)
+                    }
                 }
-            }
-        } else if sample.cpuTemperature >= Self.emergencyTempThreshold {
-            if !emergencyFanMaxActive {
-                emergencyFanMaxActive = true
-                safetyLog.error("CPU \(sample.cpuTemperature, privacy: .public)°C ≥ emergency threshold \(Self.emergencyTempThreshold). Forcing fans to max.")
-                notificationManager.sendOverheatWarning(temp: sample.cpuTemperature)
+            } else {
+                // Keep fans at max on every sample even if alert is suppressed.
                 fanController.setFanMaxEmergency()
             }
-        } else if emergencyFanMaxActive &&
-                  sample.cpuTemperature < (Self.emergencyTempThreshold - Self.emergencyHysteresis) {
-            // Temperature recovered past hysteresis — release emergency override.
-            emergencyFanMaxActive = false
-            safetyLog.info("CPU recovered to \(sample.cpuTemperature, privacy: .public)°C. Releasing emergency fan override.")
-            // Seed the optimized controller from the actual fan position so the
-            // ramp-down dead-band fires immediately on the next sample rather than
-            // waiting for the old pre-emergency reference to become stale enough.
-            if fanController.mode == .optimized {
-                fanController.notifyEmergencyReleased()
+        } else {
+            // Temperature has dropped below Tj,max — re-arm for the next episode.
+            criticalAlertSent = false
+
+            if sample.cpuTemperature >= Self.emergencyTempThreshold {
+                if !emergencyFanMaxActive {
+                    emergencyFanMaxActive = true
+                    safetyLog.error("CPU \(sample.cpuTemperature, privacy: .public)°C ≥ emergency threshold \(Self.emergencyTempThreshold). Forcing fans to max.")
+                    notificationManager.sendOverheatWarning(temp: sample.cpuTemperature)
+                    fanController.setFanMaxEmergency()
+                }
+            } else if emergencyFanMaxActive &&
+                      sample.cpuTemperature < (Self.emergencyTempThreshold - Self.emergencyHysteresis) {
+                // Temperature recovered past hysteresis — release emergency override.
+                emergencyFanMaxActive = false
+                safetyLog.info("CPU recovered to \(sample.cpuTemperature, privacy: .public)°C. Releasing emergency fan override.")
+                // Seed the optimized controller from the actual fan position so the
+                // ramp-down dead-band fires immediately on the next sample rather than
+                // waiting for the old pre-emergency reference to become stale enough.
+                if fanController.mode == .optimized {
+                    fanController.notifyEmergencyReleased()
+                }
             }
         }
 

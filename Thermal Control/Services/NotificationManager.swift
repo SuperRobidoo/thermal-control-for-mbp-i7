@@ -14,6 +14,11 @@ final class NotificationManager {
     private var lastAlertDate: Date?
     private let settings = NotificationSettings.shared
 
+    // Per-type cooldown for safety-critical notifications.
+    // Keyed by notification identifier; independent of user-configurable cooldown.
+    private var lastSafetyAlertDates: [String: Date] = [:]
+    private static let safetyAlertCooldown: TimeInterval = 30  // seconds between same-type safety alert
+
     private init() {
         registerCategories()
     }
@@ -53,12 +58,14 @@ final class NotificationManager {
     }
 
     // MARK: - Safety-critical alerts
-    // These bypass user notification preferences and cooldown because hardware
-    // risk takes precedence over notification-fatigue concerns.
+    // These bypass user notification preferences but enforce their own 30-second
+    // per-type cooldown so repeated samples at the same temperature don't spam.
+    // Stable identifiers ensure the notification centre replaces rather than stacks.
 
     /// Fires when CPU temperature reaches or exceeds the emergency warning threshold (97°C).
     /// Fan control is already being forced to max when this is called.
     func sendOverheatWarning(temp: Double) {
+        guard shouldPostSafetyAlert(key: "overheat-warning") else { return }
         let content = UNMutableNotificationContent()
         content.title = "⚠️ CPU Overheating"
         content.body  = String(format: "CPU temperature reached %.0f°C. Fans set to maximum.", temp)
@@ -74,6 +81,7 @@ final class NotificationManager {
     /// Fires when CPU temperature reaches or exceeds Tj,max (100°C).
     /// System sleep is initiated when this is called.
     func sendCriticalOverheatAlert(temp: Double) {
+        guard shouldPostSafetyAlert(key: "overheat-critical") else { return }
         let content = UNMutableNotificationContent()
         content.title = "🔥 Critical CPU Temperature"
         content.body  = String(format: "CPU reached %.0f°C — at junction maximum. System will sleep to prevent damage.", temp)
@@ -89,6 +97,7 @@ final class NotificationManager {
     /// Fires when a fan stall is confirmed (3 consecutive zero-RPM samples while CPU is warm).
     /// Fan control has already been reverted to SMC auto by the time this fires.
     func sendFanStallAlert(rpm: Int, temp: Double) {
+        guard shouldPostSafetyAlert(key: "fan-stall") else { return }
         let content = UNMutableNotificationContent()
         content.title = "⚠️ Fan Stall Detected"
         content.body  = String(format: "Fan speed dropped to %d RPM at %.0f°C. Fan control reverted to Auto.", rpm, temp)
@@ -103,9 +112,24 @@ final class NotificationManager {
 
     // MARK: - Private helpers
 
+    /// Returns true and records the timestamp if the alert with `key` is outside
+    /// the safety cooldown window. Returns false (suppress) if it fired too recently.
+    private func shouldPostSafetyAlert(key: String) -> Bool {
+        let now = Date()
+        if let last = lastSafetyAlertDates[key],
+           now.timeIntervalSince(last) < Self.safetyAlertCooldown {
+            notifLog.debug("Safety alert '\(key, privacy: .public)' suppressed — within \(Self.safetyAlertCooldown, privacy: .public)s cooldown")
+            return false
+        }
+        lastSafetyAlertDates[key] = now
+        return true
+    }
+
+    /// Posts a notification using a stable identifier so repeated calls replace
+    /// the existing notification rather than stacking multiple copies.
     private func post(_ content: UNMutableNotificationContent, identifier: String) {
         let request = UNNotificationRequest(
-            identifier: "\(identifier)-\(UUID().uuidString)",
+            identifier: identifier,   // stable — notification centre replaces, not stacks
             content: content,
             trigger: nil
         )
