@@ -250,7 +250,7 @@ final class ThermalMonitor: ObservableObject {
         }
         // Restore automatic fan control before quitting
         if fanController.mode != .auto {
-            fanController.setAuto()
+            fanController.setAuto()   // best-effort on stop; errors logged by controller
         }
         service.stop()
         isRunning = false
@@ -265,7 +265,9 @@ final class ThermalMonitor: ObservableObject {
         emergencyFanMaxActive = false
         switch newMode {
         case .auto:
-            fanController.setAuto()
+            fanController.setAuto(onError: { [weak self] msg in
+                self?.errorMessage = msg
+            })
             service.restartWithInterval(2000)
         case .optimized:
             fanController.setOptimizedMode()
@@ -396,7 +398,7 @@ final class ThermalMonitor: ObservableObject {
             if fanStallCount >= Self.fanStallConfirmCount {
                 safetyLog.critical("Fan stall confirmed after \(self.fanStallCount, privacy: .public) samples — reverting to SMC auto control")
                 notificationManager.sendFanStallAlert(rpm: fanRPM, temp: cpuTemp)
-                fanController.setAuto()
+                fanController.setAuto(onError: { [weak self] msg in self?.errorMessage = msg })
                 fanStallCount = 0
             }
         } else {
@@ -430,7 +432,7 @@ final class ThermalMonitor: ObservableObject {
                 // Release manual control before restart so the SMC is never
                 // left in manual mode while the monitor is not actively sampling.
                 if self.fanController.mode != .auto {
-                    self.fanController.setAuto()
+                    self.fanController.setAuto(onError: { [weak self] msg in self?.errorMessage = msg })
                 }
                 // Re-arm the emergency flag so it can re-trigger if temperature is
                 // still critical when samples resume (fan was just reset to auto).

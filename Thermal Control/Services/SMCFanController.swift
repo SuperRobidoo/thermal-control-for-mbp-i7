@@ -97,6 +97,7 @@ final class SMCFanController: ObservableObject {
             guard let self, let output else { return }
             // "rpm=2001 min=2000 max=5700 manual=0 target=0 fans=2"
             var manual = 0
+            var currentRPM: Double = 0
             var target: Double = 0
             var minR: Double = 2000
             var maxR: Double = 6200
@@ -105,6 +106,7 @@ final class SMCFanController: ObservableObject {
                 let kv = pair.components(separatedBy: "=")
                 guard kv.count == 2 else { continue }
                 switch kv[0] {
+                case "rpm":    currentRPM = Double(kv[1]) ?? 0
                 case "min":    minR   = Double(kv[1]) ?? 2000
                 case "max":    maxR   = Double(kv[1]) ?? 6200
                 case "manual": manual = Int(kv[1]) ?? 0
@@ -121,6 +123,24 @@ final class SMCFanController: ObservableObject {
             if rawMin != minR || rawMax != maxR {
                 fanLog.warning("SMC-reported limits out of safe range (min=\(rawMin, privacy: .public) max=\(rawMax, privacy: .public)) — clamped to min=\(minR, privacy: .public) max=\(maxR, privacy: .public)")
             }
+
+            // Seed the slew-limiter from the actual current fan RPM so that the
+            // optimized-mode dead-band check starts from reality, not from zero.
+            if currentRPM > 0 {
+                self.lastAppliedRPM = currentRPM.clamped(Self.absoluteMinRPM, Self.absoluteMaxRPM)
+            }
+
+            // If the SMC is in manual mode but the app is in auto mode, a previous
+            // session likely exited uncleanly and left the SMC locked.
+            // Release it immediately so macOS firmware regains control.
+            if manual == 1 && self.mode == .auto {
+                fanLog.warning("SMC manual override detected on startup (RPM=\(currentRPM, privacy: .public)) — releasing orphaned lock")
+                self.setAuto(onError: { err in
+                    fanLog.error("Failed to release orphaned SMC manual lock: \(err, privacy: .public)")
+                })
+                return
+            }
+
             DispatchQueue.main.async {
                 self.minRPM    = minR
                 self.maxRPM    = maxR
@@ -134,16 +154,37 @@ final class SMCFanController: ObservableObject {
     // MARK: - Mode switching
 
     /// Switch fans back to automatic SMC control.
-    func setAuto(completion: ((Bool) -> Void)? = nil) {
+    /// - Parameter onError: Called on the main queue if the helper fails after one retry.
+    func setAuto(onError: ((String) -> Void)? = nil, completion: ((Bool) -> Void)? = nil) {
         mode = .auto
         optimizedLastSetRPM = 0
         smoothedPowerW = 0
         smoothedF      = 0
+        attemptSetAuto(retryCount: 0, onError: onError, completion: completion)
+    }
+
+    private func attemptSetAuto(retryCount: Int, onError: ((String) -> Void)?, completion: ((Bool) -> Void)?) {
         runHelper(args: ["auto"]) { [weak self] output in
+            guard let self else { return }
             let ok = output?.trimmingCharacters(in: .whitespacesAndNewlines) == "ok"
-            DispatchQueue.main.async {
-                if ok { self?.isManual = false }
-                completion?(ok)
+            if ok {
+                DispatchQueue.main.async {
+                    self.isManual = false
+                    completion?(true)
+                }
+            } else if retryCount == 0 {
+                // One automatic retry after a short delay before surfacing the error.
+                fanLog.warning("setAuto: helper did not return 'ok' — retrying once")
+                DispatchQueue.global().asyncAfter(deadline: .now() + 1.5) {
+                    self.attemptSetAuto(retryCount: 1, onError: onError, completion: completion)
+                }
+            } else {
+                let msg = "Could not release SMC manual override after retry (output: \(output ?? "nil")). Fan may still be manually controlled. Try switching to Auto again."
+                fanLog.error("\(msg, privacy: .public)")
+                DispatchQueue.main.async {
+                    onError?(msg)
+                    completion?(false)
+                }
             }
         }
     }
