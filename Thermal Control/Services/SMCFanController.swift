@@ -151,7 +151,9 @@ final class SMCFanController: ObservableObject {
     /// Enter optimized mode — first sample will set the initial RPM.
     func setOptimizedMode() {
         mode = .optimized
-        optimizedLastSetRPM = 0
+        // Seed to current lastAppliedRPM so the ramp-down check has the right
+        // baseline on entry (fan may be anywhere depending on what mode we came from).
+        optimizedLastSetRPM = lastAppliedRPM
         smoothedPowerW = 0
         smoothedF      = 0
     }
@@ -178,12 +180,32 @@ final class SMCFanController: ObservableObject {
                                            isThrottling: isThrottling)
         DispatchQueue.main.async { self.optimizedTargetRPM = target }
 
-        // Ramp up if target rose by ≥ 300 RPM, ramp down only if it dropped ≥ 800 RPM.
-        // Large bands mean the fan only moves when there is a meaningful sustained change.
-        let delta = target - optimizedLastSetRPM
-        guard delta > 300 || delta < -800 else { return }
+        // Two independent dead-band checks using different reference points:
+        //
+        // Ramp UP  — compared against optimizedLastSetRPM (the last *decision*).
+        //   Prevents commanding a higher speed on every sample during a gradual
+        //   temperature rise; only fires when the target has meaningfully grown
+        //   past the last set point.
+        //
+        // Ramp DOWN — compared against lastAppliedRPM (what the fan actually
+        //   received after slew limiting).  This is what was missing: after an
+        //   emergency/throttle event the slew limiter leaves the fan at an
+        //   intermediate RPM well above the new target, but optimizedLastSetRPM
+        //   diverges from that, so the old delta check blocked all further
+        //   ramp-down commands — fan got stuck in high gear.
+        let shouldRampUp   = target > optimizedLastSetRPM + 300
+        let shouldRampDown = lastAppliedRPM > 0 && target < lastAppliedRPM - 800
+        guard shouldRampUp || shouldRampDown else { return }
         optimizedLastSetRPM = target
         applyRPM(target)
+    }
+
+    /// Called by ThermalMonitor when the emergency fan-max override is released.
+    /// Seeds optimizedLastSetRPM to maxRPM so the ramp-down check fires
+    /// immediately on the next sample rather than waiting for the slow EMA to
+    /// drag the target all the way below the stale pre-emergency reference.
+    func notifyEmergencyReleased() {
+        optimizedLastSetRPM = lastAppliedRPM   // fan is wherever it physically is
     }
 
     private func calculateOptimizedRPM(cpuTemp: Double, cpuThermalLevel: Int,

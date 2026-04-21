@@ -311,6 +311,12 @@ final class ThermalMonitor: ObservableObject {
             // Temperature recovered past hysteresis — release emergency override.
             emergencyFanMaxActive = false
             safetyLog.info("CPU recovered to \(sample.cpuTemperature, privacy: .public)°C. Releasing emergency fan override.")
+            // Seed the optimized controller from the actual fan position so the
+            // ramp-down dead-band fires immediately on the next sample rather than
+            // waiting for the old pre-emergency reference to become stale enough.
+            if fanController.mode == .optimized {
+                fanController.notifyEmergencyReleased()
+            }
         }
 
         let pressure = ThermalPressure(rawValue: sample.thermalPressure) ?? .nominal
