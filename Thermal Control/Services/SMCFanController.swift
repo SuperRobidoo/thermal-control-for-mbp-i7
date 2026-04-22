@@ -221,24 +221,28 @@ final class SMCFanController: ObservableObject {
                                            isThrottling: isThrottling)
         DispatchQueue.main.async { self.optimizedTargetRPM = target }
 
-        // Two independent dead-band checks using different reference points:
-        //
-        // Ramp UP  — compared against optimizedLastSetRPM (the last *decision*).
-        //   Prevents commanding a higher speed on every sample during a gradual
-        //   temperature rise; only fires when the target has meaningfully grown
-        //   past the last set point.
-        //
-        // Ramp DOWN — compared against lastAppliedRPM (what the fan actually
-        //   received after slew limiting).  This is what was missing: after an
-        //   emergency/throttle event the slew limiter leaves the fan at an
-        //   intermediate RPM well above the new target, but optimizedLastSetRPM
-        //   diverges from that, so the old delta check blocked all further
-        //   ramp-down commands — fan got stuck in high gear.
-        let shouldRampUp   = target > optimizedLastSetRPM + 300
-        let shouldRampDown = lastAppliedRPM > 0 && target < lastAppliedRPM - 800
-        guard shouldRampUp || shouldRampDown else { return }
-        optimizedLastSetRPM = target
-        applyRPM(target)
+        // ── Step 1: decide whether to adopt a new target ─────────────────────
+        // Dead-band prevents chasing small EMA noise on every sample.
+        // Ramp-up  fires when target has climbed 300+ RPM above the last decision.
+        // Ramp-down fires when target is 800+ RPM below the actual fan position
+        //   (lastAppliedRPM), not optimizedLastSetRPM — ensures the fan always
+        //   ramps down after an emergency/throttle event regardless of the stale
+        //   pre-event decision value.
+        let shouldUpdateTarget = target > optimizedLastSetRPM + 300
+                              || (lastAppliedRPM > 0 && target < lastAppliedRPM - 800)
+        if shouldUpdateTarget {
+            optimizedLastSetRPM = target
+        }
+
+        // ── Step 2: keep driving toward the decided target ───────────────────
+        // applyRPM uses a slew-rate limiter — each call moves the fan only one
+        // step (~175 RPM at 500ms).  Without this second check the fan would
+        // stop after the very first step and never reach the target because
+        // updating optimizedLastSetRPM = target above prevents the dead-band in
+        // Step 1 from ever firing again.
+        let gap = optimizedLastSetRPM - lastAppliedRPM
+        guard abs(gap) > 100 else { return }   // fan is within one slew-step — close enough
+        applyRPM(optimizedLastSetRPM)
     }
 
     /// Called by ThermalMonitor when the emergency fan-max override is released.
