@@ -77,13 +77,14 @@ final class ThermalMonitor: ObservableObject {
     private static let emergencyTempThreshold: Double = 97.0
     private static let criticalTempThreshold:  Double = 100.0
     private static let emergencyHysteresis:    Double = 5.0   // °C below threshold before releasing
-    private var emergencyFanMaxActive = false
-    private var criticalAlertSent     = false  // prevents repeated sleep/alert at Tj,max
+    // Notification guards — prevent repeated alerts for the same thermal episode.
+    private var emergencyAlertSent = false
+    private var criticalAlertSent  = false
 
-    // Fan-stall detection
-    private static let fanStallRPMThreshold:  Int    = 300    // RPM below which a stall is suspected
-    private static let fanStallTempThreshold: Double = 45.0   // only flag stall when CPU is warm
-    private static let fanStallConfirmCount:  Int    = 3      // consecutive samples (≥1.5 s at 500 ms)
+    // Fan-stall detection (monitor-only; no fan commands issued)
+    private static let fanStallRPMThreshold:  Int    = 300
+    private static let fanStallTempThreshold: Double = 45.0
+    private static let fanStallConfirmCount:  Int    = 3
     private var fanStallCount = 0
 
     // Sample-stream watchdog
@@ -101,19 +102,8 @@ final class ThermalMonitor: ObservableObject {
     }
 
     deinit {
-        // Best-effort fan reset on normal dealloc. This path is NOT a replacement
-        // for applicationWillTerminate or the SIGTERM handler — both of those are
-        // the authoritative cleanup points. deinit is kept only as a last resort
-        // for cases where the app delegate teardown is skipped (e.g. unit tests).
-        // We do NOT waitUntilExit() here to avoid blocking the dealloc thread.
-        if fanController.mode != .auto {
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
-            p.arguments     = ["-n", SMCFanController.helperInstallPath, "auto"]
-            p.standardOutput = Pipe()
-            p.standardError  = Pipe()
-            try? p.run()
-            // Do not wait — non-blocking fire-and-forget from deinit.
+        if let obs = wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(obs)
         }
     }
 
@@ -249,34 +239,10 @@ final class ThermalMonitor: ObservableObject {
             NSWorkspace.shared.notificationCenter.removeObserver(obs)
             wakeObserver = nil
         }
-        // Restore automatic fan control before quitting
-        if fanController.mode != .auto {
-            fanController.setAuto()   // best-effort on stop; errors logged by controller
-        }
         service.stop()
         isRunning = false
         saveTimer?.invalidate()
         saveHistory()
-    }
-
-    /// Change the fan control mode, switching sampling rate if needed.
-    func setFanControlMode(_ newMode: FanControlMode) {
-        // Re-arm the emergency override so it can trigger again if the CPU is still
-        // hot after the mode change (the new mode may not have the fan at max).
-        emergencyFanMaxActive = false
-        switch newMode {
-        case .auto:
-            fanController.setAuto(onError: { [weak self] msg in
-                self?.errorMessage = msg
-            })
-            service.restartWithInterval(2000)
-        case .optimized:
-            fanController.setOptimizedMode()
-            service.restartWithInterval(500)  // 4× faster sampling for quick reaction
-        case .manual:
-            fanController.mode = .manual
-            service.restartWithInterval(2000)
-        }
     }
 
     private func handle(sample: RawThermalSample) {
@@ -293,46 +259,29 @@ final class ThermalMonitor: ObservableObject {
 
         // ── Emergency thermal ceiling ─────────────────────────────────────────
         if sample.cpuTemperature >= Self.criticalTempThreshold {
-            // Guard with criticalAlertSent so we only fire once per episode —
-            // without this the notification and sleep request re-fire on every
-            // 500ms sample while the CPU stays at Tj,max.
             if !criticalAlertSent {
                 criticalAlertSent = true
-                safetyLog.critical("CPU \(sample.cpuTemperature, privacy: .public)°C ≥ Tj,max \(Self.criticalTempThreshold). Forcing fans to max and requesting system sleep.")
+                safetyLog.critical("CPU \(sample.cpuTemperature, privacy: .public)°C ≥ Tj,max \(Self.criticalTempThreshold). Requesting system sleep.")
                 notificationManager.sendCriticalOverheatAlert(temp: sample.cpuTemperature)
-                fanController.setFanMaxEmergency()
-                // Allow fans 2 s to spin up then request system sleep.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                     if let script = NSAppleScript(source: "tell application \"System Events\" to sleep") {
                         script.executeAndReturnError(nil)
                     }
                 }
-            } else {
-                // Keep fans at max on every sample even if alert is suppressed.
-                fanController.setFanMaxEmergency()
             }
         } else {
-            // Temperature has dropped below Tj,max — re-arm for the next episode.
             criticalAlertSent = false
 
             if sample.cpuTemperature >= Self.emergencyTempThreshold {
-                if !emergencyFanMaxActive {
-                    emergencyFanMaxActive = true
-                    safetyLog.error("CPU \(sample.cpuTemperature, privacy: .public)°C ≥ emergency threshold \(Self.emergencyTempThreshold). Forcing fans to max.")
+                if !emergencyAlertSent {
+                    emergencyAlertSent = true
+                    safetyLog.error("CPU \(sample.cpuTemperature, privacy: .public)°C ≥ emergency threshold \(Self.emergencyTempThreshold).")
                     notificationManager.sendOverheatWarning(temp: sample.cpuTemperature)
-                    fanController.setFanMaxEmergency()
                 }
-            } else if emergencyFanMaxActive &&
+            } else if emergencyAlertSent &&
                       sample.cpuTemperature < (Self.emergencyTempThreshold - Self.emergencyHysteresis) {
-                // Temperature recovered past hysteresis — release emergency override.
-                emergencyFanMaxActive = false
-                safetyLog.info("CPU recovered to \(sample.cpuTemperature, privacy: .public)°C. Releasing emergency fan override.")
-                // Seed the optimized controller from the actual fan position so the
-                // ramp-down dead-band fires immediately on the next sample rather than
-                // waiting for the old pre-emergency reference to become stale enough.
-                if fanController.mode == .optimized {
-                    fanController.notifyEmergencyReleased()
-                }
+                emergencyAlertSent = false
+                safetyLog.info("CPU recovered to \(sample.cpuTemperature, privacy: .public)°C.")
             }
         }
 
@@ -356,17 +305,6 @@ final class ThermalMonitor: ObservableObject {
         cpuFreqNominalPct = sample.cpuFreqNominalPct
         coresActivePct    = sample.coresActivePct
         gpuActivePct      = sample.gpuActivePct
-
-        if fanController.mode == .optimized && !emergencyFanMaxActive {
-            fanController.updateOptimizedMode(
-                cpuTemp:         sample.cpuTemperature,
-                cpuThermalLevel: sample.cpuThermalLevel,
-                gpuTemp:         sample.gpuTemperature,
-                gpuThermalLevel: sample.gpuThermalLevel,
-                packagePowerW:   sample.packagePowerW,
-                isThrottling:    pressure.severity >= 2
-            )
-        }
 
         let reading = TemperatureReading(
             timestamp:        Date(),
@@ -400,20 +338,15 @@ final class ThermalMonitor: ObservableObject {
 
     // MARK: - Fan-stall detection
 
-    /// Checks for a fan stall condition while manual or smart mode is active.
-    /// Reverts to auto after `fanStallConfirmCount` consecutive stall-suspect samples.
+    /// Logs a suspected fan stall when RPM is extremely low while CPU is warm.
+    /// No fan commands are issued — detection only.
     private func checkFanStall(fanRPM: Int, cpuTemp: Double) {
-        guard fanController.mode != .auto else {
-            fanStallCount = 0
-            return
-        }
         if fanRPM < Self.fanStallRPMThreshold && cpuTemp > Self.fanStallTempThreshold {
             fanStallCount += 1
             safetyLog.error("Fan stall suspected: RPM=\(fanRPM, privacy: .public) at \(cpuTemp, privacy: .public)°C (consecutive=\(self.fanStallCount, privacy: .public))")
             if fanStallCount >= Self.fanStallConfirmCount {
-                safetyLog.critical("Fan stall confirmed after \(self.fanStallCount, privacy: .public) samples — reverting to SMC auto control")
+                safetyLog.critical("Fan stall confirmed after \(self.fanStallCount, privacy: .public) samples")
                 notificationManager.sendFanStallAlert(rpm: fanRPM, temp: cpuTemp)
-                fanController.setAuto(onError: { [weak self] msg in self?.errorMessage = msg })
                 fanStallCount = 0
             }
         } else {
@@ -444,14 +377,6 @@ final class ThermalMonitor: ObservableObject {
             safetyLog.warning("No thermal sample for \(age, privacy: .public) s — stream stale. Restarting service.")
             DispatchQueue.main.async {
                 self.errorMessage = "Sensor data stale (\(Int(age))s) — restarting monitor…"
-                // Release manual control before restart so the SMC is never
-                // left in manual mode while the monitor is not actively sampling.
-                if self.fanController.mode != .auto {
-                    self.fanController.setAuto(onError: { [weak self] msg in self?.errorMessage = msg })
-                }
-                // Re-arm the emergency flag so it can re-trigger if temperature is
-                // still critical when samples resume (fan was just reset to auto).
-                self.emergencyFanMaxActive = false
                 self.lastSampleDate = Date()  // reset to prevent re-entry before restart completes
                 self.service.stop()
                 self.service.startAfterPrivilegesGranted()

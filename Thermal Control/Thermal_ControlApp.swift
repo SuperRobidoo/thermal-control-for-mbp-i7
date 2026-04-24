@@ -21,55 +21,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        guard let fc = monitor?.fanController, fc.mode != .auto else { return }
-        appLog.info("applicationWillTerminate: resetting SMC fan control to auto")
-        // Synchronously reset SMC fan control before the process exits.
-        // Hard 500 ms timeout — never block process teardown indefinitely.
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
-        p.arguments     = ["-n", SMCFanController.helperInstallPath, "auto"]
-        p.standardOutput = Pipe()
-        p.standardError  = Pipe()
-        guard (try? p.run()) != nil else { return }
-        let deadline = Date().addingTimeInterval(0.5)
-        while p.isRunning && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.05)
-        }
-        if p.isRunning {
-            appLog.warning("applicationWillTerminate: helper did not finish within timeout — terminating it")
-            p.terminate()
-        }
+        appLog.info("applicationWillTerminate")
     }
 
     // MARK: - SIGTERM handler
 
-    /// Installs a DispatchSource-based SIGTERM handler so the SMC is reset even
-    /// when the process is terminated by launchctl, memory pressure, or the user
-    /// via `kill` — paths that bypass applicationWillTerminate.
+    /// Installs a DispatchSource-based SIGTERM handler for clean shutdown.
     private func installSigtermHandler() {
-        signal(SIGTERM, SIG_IGN)  // suppress default handling; DispatchSource takes over
+        signal(SIGTERM, SIG_IGN)
         let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
-        source.setEventHandler { [weak self] in
-            appLog.info("SIGTERM received — resetting SMC fan control before exit")
-            if let fc = self?.monitor?.fanController, fc.mode != .auto {
-                // Run the helper synchronously, same as applicationWillTerminate.
-                // setAuto() is async (dispatches to a background queue) and cannot
-                // be relied upon before exit(0) — use a direct Process with timeout.
-                let p = Process()
-                p.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
-                p.arguments     = ["-n", SMCFanController.helperInstallPath, "auto"]
-                p.standardOutput = Pipe()
-                p.standardError  = Pipe()
-                guard (try? p.run()) != nil else { exit(0) }
-                let deadline = Date().addingTimeInterval(0.5)
-                while p.isRunning && Date() < deadline {
-                    Thread.sleep(forTimeInterval: 0.05)
-                }
-                if p.isRunning {
-                    appLog.warning("SIGTERM: helper did not finish within timeout — terminating it")
-                    p.terminate()
-                }
-            }
+        source.setEventHandler {
+            appLog.info("SIGTERM received — exiting")
             exit(0)
         }
         source.resume()
